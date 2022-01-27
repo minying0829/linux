@@ -129,6 +129,7 @@ struct i3c_device_info {
 	u32 max_read_turnaround;
 	u16 max_read_len;
 	u16 max_write_len;
+	__be16 status;
 };
 
 /*
@@ -349,5 +350,7 @@ struct i3c_target_read_setup {
 };
 
 int i3c_target_read_register(struct i3c_device *dev, const struct i3c_target_read_setup *setup);
+
+int i3c_device_getstatus_ccc(struct i3c_device *dev, struct i3c_device_info *info);
 
 #endif /* I3C_DEV_H */
