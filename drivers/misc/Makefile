@@ -64,3 +64,5 @@ obj-$(CONFIG_NPCM7XX_JTAG_MASTER)	+= npcm7xx-jtag-master.o
 obj-$(CONFIG_NPCM8XX_JTAG_MASTER)	+= npcm8xx-jtag-master.o
 obj-$(CONFIG_MCTP_LPC)		+= mctp-lpc.o
 obj-$(CONFIG_NPCM7XX_MCU_FLASH) += npcm7xx-mcu-flash.o
+obj-$(CONFIG_NPCM750_VCD) += npcm750_vcd.o
+obj-$(CONFIG_NPCM750_ECE) += npcm750_ece.o
