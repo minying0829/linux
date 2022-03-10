@@ -487,9 +487,6 @@ static int npcm_pcie_init(struct device *dev, struct npcm_pcie *pcie)
 	npcm_initialize_as_root_complex(pcie);
 	npcm_pcie_rc_init_config_window(pcie);
 	
-	set_translation_window((void __iomem *)pcie->reg_base + RCPA0SAL, 0, SZ_256M , 0,
-				PLDA_XPRESS_RICH_MEMORY_WINDOW ,PLDA_XPRESS_RICH_TARGET_AXI_MASTER);
-
 	if (!ret) {
 		gpio_set_value(pcie->rst_ep_gpio, 1);
 		gpio_free(pcie->rst_ep_gpio);
