@@ -32,21 +32,13 @@
 
 #define NPCM_CORE_SELECT		(15)
 
-/* PCIe-to-AXI Window 0 Registers */
-#define RCPA0SAL	0x600
-#define RCPA0SAH	0x604
-#define RCPA0TAL	0x608
-#define RCPA0TAH	0x60C
-#define RCPA0TP		0x610
-#define RCPA0TM		0x618
-
-/* PCIe-to-AXI Window 0 Registers */
-#define RCPA1SAL	0x700
-#define RCPA1SAH	0x704
-#define RCPA1TAL	0x708
-#define RCPA1TAH	0x70C
-#define RCPA1TP		0x710
-#define RCPA1TM		0x718
+/* PCIe-to-AXI Window 0 and 1 Registers */
+#define RCPAnSAL(n) (0x600 + (0x100 * (n)))
+#define RCPAnSAH(n) (0x604 + (0x100 * (n)))
+#define RCPAnTAL(n) (0x608 + (0x100 * (n)))
+#define RCPAnTAH(n) (0x60C + (0x100 * (n)))
+#define RCPAnTP(n)  (0x610 + (0x100 * (n)))
+#define RCPAnTM(n)  (0x618 + (0x100 * (n)))
 
 /* AXI-to-PCIe Window 1 to 4 Registers */
 #define RCAPnSAL(n) (0x800 + (0x20 * (n)))
@@ -84,6 +76,7 @@
 #define PCI_RC_ATTR_TRSL_ID_POS			0
 
 #define PCI_RC_MAX_AXI_PCI_WIN			5
+#define PCI_RC_MAX_PCI_AXI_WIN			2
 
 #define IRQ_REQUEST
 #define PCI_BAR_REG 0x10
@@ -292,8 +285,9 @@ static void npcm_initialize_as_root_complex(struct npcm_pcie *pcie)
 	iowrite32(PCIERC_CFG_NO_SLVERR, pcie->reg_base + PCIERC_AXI_ERROR_REPORT);
 }
 
-static int set_translation_window(void __iomem * config_address_base,dma_addr_t source_addr,
-		u32 size,dma_addr_t dest_addr,u8 win_type,u8 target)
+static int set_translation_window(struct npcm_pcie *pcie, u32 win_num,
+				  dma_addr_t source_addr, u32 size,dma_addr_t
+				  dest_addr,u8 win_type,u8 target)
 {
 	u8 win_size = 11 ;
 	u32 val;
@@ -309,19 +303,19 @@ static int set_translation_window(void __iomem * config_address_base,dma_addr_t 
 
 #ifdef __LP64__
 	writel(((uint64_t)source_addr & 0xffffffff) +
-			(win_size << PCI_RC_ATTR_WIN_SIZE_POS)+(1 << PCI_RC_ATTR_WIN_EN_POS) , config_address_base);
-	writel(((uint64_t)source_addr >> 32 ) & 0xffffffff ,config_address_base + 0x4 );
-	writel(((uint64_t)dest_addr & 0xffffffff) , config_address_base + 0x8);
-	writel(((uint64_t)dest_addr >> 32 ) & 0xffffffff , config_address_base + 0xc );
+			(win_size << PCI_RC_ATTR_WIN_SIZE_POS)+(1 << PCI_RC_ATTR_WIN_EN_POS) , pcie->reg_base + RCPAnSAL(win_num));
+	writel(((uint64_t)source_addr >> 32 ) & 0xffffffff ,pcie->reg_base + RCPAnSAH(win_num));
+	writel(((uint64_t)dest_addr & 0xffffffff) , pcie->reg_base + RCPAnTAL(win_num));
+	writel(((uint64_t)dest_addr >> 32 ) & 0xffffffff , pcie->reg_base + RCPAnTAH(win_num));
 #else
 	writel( ((u32)source_addr  ) +
-			(win_size << PCI_RC_ATTR_WIN_SIZE_POS)+(1 << PCI_RC_ATTR_WIN_EN_POS) , config_address_base);
-	writel(0 ,config_address_base + 0x4 );
-	writel((u32)dest_addr, config_address_base + 0x8);
-	writel(0, config_address_base + 0xc );
+			(win_size << PCI_RC_ATTR_WIN_SIZE_POS)+(1 << PCI_RC_ATTR_WIN_EN_POS) , pcie->reg_base + RCPAnSAL(win_num));
+	writel(0 ,pcie->reg_base + RCPAnSAH(win_num));
+	writel((u32)dest_addr, pcie->reg_base + RCPAnTAL(win_num));
+	writel(0, pcie->reg_base + RCPAnTAH(win_num));
 #endif
 	val = (win_type << PCI_RC_ATTR_TRSF_PARAM_POS) + (target << PCI_RC_ATTR_TRSL_ID_POS);
-	writel(val, config_address_base + 0x10);
+	writel(val, pcie->reg_base + RCPAnTP(win_num));
 
 	return 0;
 }
@@ -373,15 +367,20 @@ static void npcm_pcie_rc_init_config_window(struct npcm_pcie *pcie)
 		start_win_num++;
 	}
 
-	if (of_pci_dma_range_parser_init(&parser, dev->of_node) < 0)
-		return;
-	if (of_pci_range_parser_one(&parser, &range) == NULL)
+	if (of_pci_dma_range_parser_init(&parser, node))
 		return;
 
-	set_translation_window((void __iomem *)pcie->reg_base + RCPA1SAL,
-			       range.cpu_addr, range.size , range.pci_addr,
-			       PLDA_XPRESS_RICH_MEMORY_WINDOW,
-			       PLDA_XPRESS_RICH_TARGET_AXI_MASTER);
+	for_each_of_pci_range(&parser, &range) {
+		start_win_num = 0;
+
+		if (start_win_num > PCI_RC_MAX_PCI_AXI_WIN)
+			continue;
+		set_translation_window(pcie, start_win_num, range.cpu_addr, 
+				       range.size , range.pci_addr,
+				       PLDA_XPRESS_RICH_MEMORY_WINDOW,
+				       PLDA_XPRESS_RICH_TARGET_AXI_MASTER);
+		start_win_num++;
+	}
 }
 
 static int npcm_config_read(struct pci_bus *bus, 
