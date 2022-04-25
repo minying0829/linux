@@ -1546,10 +1546,6 @@ static void npcm_i2c_irq_handle_ber(struct npcm_i2c *bus)
 		npcm_i2c_master_abort(bus);
 	} else {
 		npcm_i2c_clear_master_status(bus);
-
-		/* Clear BB (BUS BUSY) bit */
-		iowrite8(NPCM_I2CCST_BB, bus->reg + NPCM_I2CCST);
-
 		bus->cmd_err = -EAGAIN;
 		npcm_i2c_callback(bus, bus->stop_ind, npcm_i2c_get_index(bus));
 	}
