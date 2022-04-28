@@ -352,5 +352,10 @@ struct i3c_target_read_setup {
 int i3c_target_read_register(struct i3c_device *dev, const struct i3c_target_read_setup *setup);
 
 int i3c_device_getstatus_ccc(struct i3c_device *dev, struct i3c_device_info *info);
+int i3c_device_setmrl_ccc(struct i3c_device *dev, struct i3c_device_info *info, __be16 read_len,
+			  u8 ibi_len);
+int i3c_device_setmwl_ccc(struct i3c_device *dev, struct i3c_device_info *info, __be16 write_len);
+int i3c_device_getmrl_ccc(struct i3c_device *dev, struct i3c_device_info *info);
+int i3c_device_getmwl_ccc(struct i3c_device *dev, struct i3c_device_info *info);
 
 #endif /* I3C_DEV_H */
