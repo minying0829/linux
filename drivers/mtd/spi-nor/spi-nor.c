@@ -2238,6 +2238,11 @@ static const struct flash_info spi_nor_ids[] = {
 			.fixups = &gd25q256_fixups,
 	},
 
+	/* Google -- Hoth */
+	{ "hoth-512",  INFO(0x260217, 0, 64 * 1024, 1024, SECT_4K) },
+	{ "hoth-1024", INFO(0x26021a, 0, 64 * 1024, 2048, SECT_4K) },
+	{ "hoth2-1024", INFO(0x26221a, 0, 64 * 1024, 2048, SECT_4K) },
+
 	/* Intel/Numonyx -- xxxs33b */
 	{ "160s33b",  INFO(0x898911, 0, 64 * 1024,  32, 0) },
 	{ "320s33b",  INFO(0x898912, 0, 64 * 1024,  64, 0) },
