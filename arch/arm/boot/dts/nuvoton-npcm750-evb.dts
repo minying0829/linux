@@ -328,6 +328,13 @@
 	};
 };
 
+/* using GPIO29 for reset RC and EP signal */
+/*&pci_rc {
+	rst-rc-pci = <&gpio0 29 1>;
+	rst-ep-pci = <&gpio0 29 1>;
+	status = "okay";
+};*/
+
 &sdhci0 {
 	status = "okay";
 };
