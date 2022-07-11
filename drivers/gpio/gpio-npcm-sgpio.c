@@ -475,6 +475,8 @@ static int npcm_sgpio_setup_irqs(struct npcm_sgpio *gpio,
 
 	gpio->irq = rc;
 
+	npcm_sgpio_setup_enable(gpio, false);
+
 	/* Disable IRQ and clear Interrupt status registers for all SGPIO Pins. */
 	for (i = 0; i < ARRAY_SIZE(npcm_sgpio_banks); i++) {
 		const struct npcm_sgpio_bank *bank = &npcm_sgpio_banks[i];
