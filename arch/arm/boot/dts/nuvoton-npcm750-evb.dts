@@ -69,19 +69,9 @@
 		#size-cells = <1>;
 		ranges;
 
-		vcd_memory: framebuffer@0x1e200000 {
-			reg = <0x1e200000 0x600000>;
-			no-map;
-		};
-
-		ece_memory: framebuffer@0x1e800000 {
-			reg = <0x1e800000 0x600000>;
-			no-map;
-		};
-
 		video_memory: framebuffer@0x1b000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x1b000000 0x02000000>;
+			reg = <0x1b000000 0x01800000>;
 			reusable;
 			linux,cma-default;
 		};
@@ -347,19 +337,9 @@
 	status = "okay";
 };
 
-&vcd {
-	status = "okay";
-	memory-region = <&vcd_memory>;
-};
-
-&ece {
-	status = "okay";
-	memory-region = <&ece_memory>;
-};
-
 &video {
 	memory-region = <&video_memory>;
-	//status = "okay";
+	status = "okay";
 };
 
 &watchdog1 {

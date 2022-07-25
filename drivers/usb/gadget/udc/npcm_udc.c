@@ -2782,8 +2782,7 @@ static int npcm_udc_probe(struct platform_device *pdev)
 		regmap_update_bits(gcr_regmap, INTCR3_OFFSET, NPCM_INTCR3_USBPHYSW, NPCM_INTCR3_USBPHYSW);
 	}
 
-
-	if (udc_controller->id == 8) {
+	if ((udc_controller->id == 8) && (of_device_is_compatible(np, "nuvoton,npcm845-udc"))) {
 		gcr_regmap = syscon_regmap_lookup_by_compatible("nuvoton,npcm845-gcr");
 		if (IS_ERR(gcr_regmap)) {
 			pr_err("%s: failed to find nuvoton,npcm845-gcr\n", __func__);

@@ -475,6 +475,8 @@ static int npcm_sgpio_setup_irqs(struct npcm_sgpio *gpio,
 
 	gpio->irq = rc;
 
+	npcm_sgpio_setup_enable(gpio, false);
+
 	/* Disable IRQ and clear Interrupt status registers for all SGPIO Pins. */
 	for (i = 0; i < ARRAY_SIZE(npcm_sgpio_banks); i++) {
 		const struct npcm_sgpio_bank *bank = &npcm_sgpio_banks[i];
@@ -502,11 +504,11 @@ static int npcm_sgpio_setup_irqs(struct npcm_sgpio *gpio,
 	return 0;
 }
 
-static const int npcm7xx_SFT_CLK[] = {
+static const int npcm750_SFT_CLK[] = {
 		1024, 32, 8, 4, 3, 2,
 };
 
-static const u8 npcm7xx_CLK_SEL[] = {
+static const u8 npcm750_CLK_SEL[] = {
 		0x00, 0x05, 0x07, 0x0C, 0x0D, 0x0E,
 };
 
@@ -518,9 +520,9 @@ static const u8 npcm845_CLK_SEL[] = {
 		0x00, 0x05, 0x06, 0x07, 0x0C,
 };
 
-static const struct npcm_clk_cfg npcm7xx_sgpio_pdata = {
-	.SFT_CLK = npcm7xx_SFT_CLK,
-	.CLK_SEL = npcm7xx_CLK_SEL,
+static const struct npcm_clk_cfg npcm750_sgpio_pdata = {
+	.SFT_CLK = npcm750_SFT_CLK,
+	.CLK_SEL = npcm750_CLK_SEL,
 	.cfg_opt = 6,
 };
 
@@ -531,7 +533,7 @@ static const struct npcm_clk_cfg npcm845_sgpio_pdata = {
 };
 
 static const struct of_device_id npcm_sgpio_of_table[] = {
-	{ .compatible = "nuvoton,npcm750-sgpio", .data = &npcm7xx_sgpio_pdata, },
+	{ .compatible = "nuvoton,npcm750-sgpio", .data = &npcm750_sgpio_pdata, },
 	{ .compatible = "nuvoton,npcm845-sgpio", .data = &npcm845_sgpio_pdata, },
 	{}
 };
