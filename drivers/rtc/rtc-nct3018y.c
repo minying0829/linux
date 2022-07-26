@@ -50,13 +50,15 @@ struct nct3018y {
 #endif
 };
 
+static struct rtc_time intrusion_timestamp;
+
 static int nct3018y_set_alarm_mode(struct i2c_client *client, bool on)
 {
 	int err, flags;
 
 	dev_dbg(&client->dev, "%s:on:%d\n", __func__, on);
 
-	flags =  i2c_smbus_read_byte_data(client, NCT3018Y_REG_CTRL);
+	flags = i2c_smbus_read_byte_data(client, NCT3018Y_REG_CTRL);
 	if (flags < 0) {
 		dev_dbg(&client->dev,
 			"Failed to read NCT3018Y_REG_CTRL\n");
@@ -68,7 +70,6 @@ static int nct3018y_set_alarm_mode(struct i2c_client *client, bool on)
 	else
 		flags &= ~NCT3018Y_BIT_AIE;
 
-	flags |= NCT3018Y_BIT_CIE;
 	err = i2c_smbus_write_byte_data(client, NCT3018Y_REG_CTRL, flags);
 	if (err < 0) {
 		dev_dbg(&client->dev, "Unable to write NCT3018Y_REG_CTRL\n");
@@ -119,6 +120,41 @@ static int nct3018y_get_alarm_mode(struct i2c_client *client, unsigned char *ala
 	return 0;
 }
 
+static int nct3018y_set_intrusion_mode(struct i2c_client *client, bool on)
+{
+	int err, flags;
+
+	dev_dbg(&client->dev, "%s:on:%d\n", __func__, on);
+
+	flags = i2c_smbus_read_byte_data(client, NCT3018Y_REG_INTR_CTRL);
+	if (flags < 0) {
+		dev_dbg(&client->dev,
+			"Failed to read NCT3018Y_REG_INTR_CTRL\n");
+		return flags;
+	}
+
+	/* Clear intrusion flag first. */
+	flags &= ~NCT3018Y_BIT_INTRF; /* This bit can be cleared only when INTRUDER# is high */
+	err = i2c_smbus_write_byte_data(client, NCT3018Y_REG_INTR_CTRL, flags);
+	if (err < 0) {
+		dev_dbg(&client->dev, "Unable to write NCT3018Y_REG_INTR_CTRL\n");
+		return err;
+	}
+
+	if (on)
+		flags |= NCT3018Y_BIT_INTRIE;
+	else
+		flags &= ~NCT3018Y_BIT_INTRIE;
+
+	err = i2c_smbus_write_byte_data(client, NCT3018Y_REG_INTR_CTRL, flags);
+	if (err < 0) {
+		dev_dbg(&client->dev, "Unable to write NCT3018Y_REG_INTR_CTRL\n");
+		return err;
+	}
+
+	return 0;
+}
+
 static int nct3018y_get_intrusion_timestamp(struct i2c_client *client, struct rtc_time *tm)
 {
 	int ret = 0;
@@ -131,7 +167,6 @@ static int nct3018y_get_intrusion_timestamp(struct i2c_client *client, struct rt
 	tm->tm_sec = bcd2bin(buf[0] & 0x7F);
 	tm->tm_min = bcd2bin(buf[1] & 0x7F);
 	tm->tm_hour = bcd2bin(buf[2] & 0xFF);
-	tm->tm_wday = bcd2bin(buf[3] & 0x3F);
 	tm->tm_mday = bcd2bin(buf[3] & 0x3F);
 	tm->tm_mon = bcd2bin(buf[4] & 0x1F) - 1;
 	tm->tm_year = bcd2bin(buf[5]) + 100;
@@ -139,7 +174,7 @@ static int nct3018y_get_intrusion_timestamp(struct i2c_client *client, struct rt
 	dev_dbg(&client->dev, "%s:s=%d m=%d, hr=%d\n",
 		__func__, tm->tm_sec, tm->tm_min,
 		tm->tm_hour);
-	return rtc_valid_tm(tm);
+	return 0;
 }
 
 static int nct3018y_get_intrusion_mode(struct i2c_client *client, unsigned char *enable,
@@ -205,8 +240,19 @@ static ssize_t intrusion_store(struct device *dev,
 
 static DEVICE_ATTR_RW(intrusion);
 
+static ssize_t intrusion_timestamp_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct rtc_time *intrusion_ts = &intrusion_timestamp;
+
+	return sprintf(buf, "%ptR UTC\n", intrusion_ts);
+};
+
+static DEVICE_ATTR_RO(intrusion_timestamp);
+
 static struct attribute *nct3018y_attrs[] = {
 	&dev_attr_intrusion.attr,
+	&dev_attr_intrusion_timestamp.attr,
 	NULL
 };
 
@@ -214,12 +260,11 @@ static const struct attribute_group nct3018y_attr_group = {
 	.attrs	= nct3018y_attrs,
 };
 
-
 static irqreturn_t nct3018y_irq(int irq, void *dev_id)
 {
 	struct nct3018y *nct3018y = i2c_get_clientdata(dev_id);
 	struct i2c_client *client = nct3018y->client;
-	struct rtc_time intrusion_timestamp;
+	struct rtc_time *intrusion_ts = &intrusion_timestamp;
 	int err;
 	unsigned char alarm_flag;
 	unsigned char alarm_enable;
@@ -239,14 +284,15 @@ static irqreturn_t nct3018y_irq(int irq, void *dev_id)
 	}
 
 	err = nct3018y_get_intrusion_mode(nct3018y->client, &intrusion_enable, &intrusion_flag);
-	if (err)
+	if (err < 0)
 		return IRQ_NONE;
 
 	if (intrusion_enable && intrusion_flag) {
 		/* Get the timestamp of intrusion event */
-		err = nct3018y_get_intrusion_timestamp(nct3018y->client, &intrusion_timestamp);
+		err = nct3018y_get_intrusion_timestamp(nct3018y->client, intrusion_ts);
 		if (err < 0)
 			return IRQ_NONE;
+		nct3018y_set_intrusion_mode(nct3018y->client, 0);
 	}
 
 	return IRQ_HANDLED;
@@ -569,6 +615,7 @@ static int nct3018y_probe(struct i2c_client *client,
 {
 	struct nct3018y *nct3018y;
 	int err, flags;
+	u32 intrusion_en;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C |
 				     I2C_FUNC_SMBUS_BYTE |
@@ -592,7 +639,7 @@ static int nct3018y_probe(struct i2c_client *client,
 		dev_dbg(&client->dev, "%s: NCT3018Y_BIT_TWO is set\n", __func__);
 	}
 
-	flags = NCT3018Y_BIT_TWO;
+	flags = NCT3018Y_BIT_TWO | NCT3018Y_BIT_HF;
 	err = i2c_smbus_write_byte_data(client, NCT3018Y_REG_CTRL, flags);
 	if (err < 0) {
 		dev_dbg(&client->dev, "Unable to write NCT3018Y_REG_CTRL\n");
@@ -628,6 +675,11 @@ static int nct3018y_probe(struct i2c_client *client,
 	err = rtc_add_group(nct3018y->rtc, &nct3018y_attr_group);
 	if (err)
 		return err;
+
+	/* Enable intrusion interrupt */
+	of_property_read_u32(client->dev.of_node, "intrusion-enable", &intrusion_en);
+	dev_dbg(&client->dev, "%s(%d) intrusion_en=%d\n", __func__, __LINE__, intrusion_en);
+	nct3018y_set_intrusion_mode(nct3018y->client, intrusion_en);
 
 #ifdef CONFIG_COMMON_CLK
 	/* register clk in common clk framework */
