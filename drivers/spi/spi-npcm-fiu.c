@@ -748,6 +748,10 @@ static int npcm_fiu_probe(struct platform_device *pdev)
 	fiu->spix_mode = of_property_read_bool(dev->of_node,
 					       "nuvoton,spix-mode");
 
+	if ((fiu->info->fiu_id == FIUX) && (fiu->spix_mode == false))
+		regmap_update_bits(fiu->regmap, NPCM_FIU_DRD_CFG,
+				   NPCM_FIU_DRD_CFG_ACCTYPE, 0x0);
+
 	platform_set_drvdata(pdev, fiu);
 	clk_prepare_enable(fiu->clk);
 
