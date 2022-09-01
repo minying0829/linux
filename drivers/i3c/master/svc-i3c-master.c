@@ -482,16 +482,24 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	ppbaud = div - 1;
 	freq /= div;
 
+	/* Adjust duty-cycle for PP */
+	if (bus->scl_rate.i3c >= 11000000 && bus->scl_rate.i3c < 12500000) {
+		/* PP 40/50 ns */
+		ppbaud = DIV_ROUND_UP(40, fclk_period_ns) - 1;
+		pplow = DIV_ROUND_UP(10, fclk_period_ns);
+	} else if (bus->scl_rate.i3c == 10000000) {
+		/* PP 40/60 ns */
+		ppbaud = DIV_ROUND_UP(40, fclk_period_ns) - 1;
+		pplow = DIV_ROUND_UP(20, fclk_period_ns);
+	}
+
+	/* Simple configuration for OD: high=pp_high, low=200ns */
 	odhpp = 1;
-	/* odFreq = ppFreq / (ODBAUD + 1), 1 <= ODBAUD <= 255 */
-	/* Let odFreq = ppFreq / 3 */
-	div = DIV_ROUND_UP(freq, (bus->scl_rate.i3c / 3));
-	div = (div < 2) ? 2 : (div > 256) ? 256 : div;
-	odbaud = div - 1;
+	pp_high_period = (ppbaud + 1) * fclk_period_ns;
+	odbaud = DIV_ROUND_UP(200, pp_high_period) - 1;
+	od_low_period = (odbaud + 1) * pp_high_period;
 
 	/* calcuate i2c_baud */
-	pp_high_period = (ppbaud + 1) * fclk_period_ns;
-	od_low_period = (odbaud + 1) * pp_high_period;
 	i2c_period = DIV_ROUND_UP(1000000000, bus->scl_rate.i2c);
 	div = DIV_ROUND_UP(i2c_period, od_low_period);
 	i2cbaud = div / 2;
