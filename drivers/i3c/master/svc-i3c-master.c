@@ -123,6 +123,7 @@
 
 /* This parameter depends on the implementation and may be tuned */
 #define SVC_I3C_FIFO_SIZE 16
+#define SVC_I3C_MAX_IBI_PAYLOAD_LEN 8
 
 struct svc_i3c_cmd {
 	u8 addr;
@@ -193,7 +194,6 @@ struct svc_i3c_master {
 		/* Prevent races within IBI handlers */
 		spinlock_t lock;
 	} ibi;
-	bool registered;
 };
 
 /**
@@ -302,6 +302,7 @@ static int svc_i3c_master_handle_ibi(struct svc_i3c_master *master,
 	struct i3c_ibi_slot *slot;
 	unsigned int count;
 	u32 mdatactrl;
+	u32 val;
 	u8 *buf;
 
 	slot = i3c_generic_ibi_get_free_slot(data->ibi_pool);
@@ -311,13 +312,22 @@ static int svc_i3c_master_handle_ibi(struct svc_i3c_master *master,
 	slot->len = 0;
 	buf = slot->data;
 
-	while (SVC_I3C_MSTATUS_RXPEND(readl(master->regs + SVC_I3C_MSTATUS))  &&
-	       slot->len < SVC_I3C_FIFO_SIZE) {
+	while (slot->len < SVC_I3C_MAX_IBI_PAYLOAD_LEN) {
+		if (dev->info.bcr & I3C_BCR_IBI_PAYLOAD)
+			readl_relaxed_poll_timeout(master->regs + SVC_I3C_MSTATUS, val,
+						   SVC_I3C_MSTATUS_RXPEND(val), 0, 1000);
+		val = readl(master->regs + SVC_I3C_MSTATUS);
+		if (!SVC_I3C_MSTATUS_RXPEND(val))
+			break;
+
 		mdatactrl = readl(master->regs + SVC_I3C_MDATACTRL);
 		count = SVC_I3C_MDATACTRL_RXCOUNT(mdatactrl);
-		readsl(master->regs + SVC_I3C_MRDATAB, buf, count);
+		readsb(master->regs + SVC_I3C_MRDATAB, buf, count);
 		slot->len += count;
 		buf += count;
+
+		if (SVC_I3C_MSTATUS_COMPLETE(val))
+			break;
 	}
 
 	master->ibi.tbq_slot = slot;
@@ -441,13 +451,8 @@ static irqreturn_t svc_i3c_master_irq_handler(int irq, void *dev_id)
 	if (!SVC_I3C_MSTATUS_SLVSTART(active))
 		return IRQ_NONE;
 
-	dev_dbg(master->dev, "slvstart interrupt\n");
-
 	/* Clear the interrupt status */
 	writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MSTATUS);
-
-	/* TODO: fix unexpected SLVSTART intterupt */
-	return IRQ_HANDLED;
 
 	svc_i3c_master_disable_interrupts(master);
 
@@ -528,8 +533,6 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	dev_dbg(master->dev, "i2c_low=%d\n", i2cbaud * od_low_period);
 	dev_dbg(master->dev, "mconfig=0x%x\n", readl(master->regs + SVC_I3C_MCONFIG));
 
-	if (master->registered)
-		return 0;
 	/* Master core's registration */
 	ret = i3c_master_get_free_addr(m, 0);
 	if (ret < 0)
@@ -543,10 +546,6 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	ret = i3c_master_set_info(&master->base, &info);
 	if (ret)
 		return ret;
-
-	master->registered = true;
-	/* TODO: fix unexpected SLVSTART intterupt */
-	/*svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_SLVSTART);*/
 
 	return 0;
 }
@@ -1274,6 +1273,12 @@ static int svc_i3c_master_priv_xfers(struct i3c_dev_desc *dev,
 	if (!wait_for_completion_timeout(&xfer->comp, msecs_to_jiffies(1000)))
 		svc_i3c_master_dequeue_xfer(master, xfer);
 
+	for (i = 0; i < nxfers; i++) {
+		struct svc_i3c_cmd *cmd = &xfer->cmds[i];
+
+		if (xfers[i].rnw)
+			xfers[i].len = cmd->read_len;
+	}
 	ret = xfer->ret;
 	svc_i3c_master_free_xfer(xfer);
 
@@ -1328,8 +1333,8 @@ static int svc_i3c_master_request_ibi(struct i3c_dev_desc *dev,
 	unsigned int i;
 
 	if (dev->ibi->max_payload_len > SVC_I3C_FIFO_SIZE) {
-		dev_err(master->dev, "IBI max payload %d should be < %d\n",
-			dev->ibi->max_payload_len, SVC_I3C_FIFO_SIZE);
+		dev_err(master->dev, "IBI max payload %d should be <= %d\n",
+			dev->ibi->max_payload_len, SVC_I3C_MAX_IBI_PAYLOAD_LEN);
 		return -ERANGE;
 	}
 
@@ -1374,6 +1379,8 @@ static void svc_i3c_master_free_ibi(struct i3c_dev_desc *dev)
 static int svc_i3c_master_enable_ibi(struct i3c_dev_desc *dev)
 {
 	struct i3c_master_controller *m = i3c_dev_get_master(dev);
+	struct svc_i3c_master *master = to_svc_i3c_master(m);
+	svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_SLVSTART);
 
 	return i3c_master_enec_locked(m, dev->info.dyn_addr, I3C_CCC_EVENT_SIR);
 }
@@ -1511,8 +1518,7 @@ static int svc_i3c_master_probe(struct platform_device *pdev)
 		goto err_disable_sclk;
 
 	dev_info(&pdev->dev, "probe OK\n");
-	/* TODO: fix unexpected SLVSTART intterupt */
-	/*svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_SLVSTART);*/
+
 	return 0;
 
 err_disable_sclk:
