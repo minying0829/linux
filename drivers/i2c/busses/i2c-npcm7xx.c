@@ -2277,7 +2277,7 @@ static const struct i2c_algorithm npcm_i2c_algo = {
 
 /* i2c debugfs directory: used to keep health monitor of i2c devices */
 static struct dentry *npcm_i2c_debugfs_dir;
-#ifdef I2C_MODIFY_SPEED_AT_RUNTIME
+
 static int i2c_speed_get(void *data, u64 *val)
 {
 	struct npcm_i2c *bus = data;
@@ -2313,7 +2313,7 @@ static int i2c_speed_set(void *data, u64 val)
 	return 0;
 }
 DEFINE_DEBUGFS_ATTRIBUTE(i2c_clock_ops, i2c_speed_get, i2c_speed_set, "%llu\n");
-#endif
+
 static void npcm_i2c_init_debugfs(struct platform_device *pdev,
 				  struct npcm_i2c *bus)
 {
@@ -2329,9 +2329,7 @@ static void npcm_i2c_init_debugfs(struct platform_device *pdev,
 	debugfs_create_u64("rec_succ_cnt", 0444, d, &bus->rec_succ_cnt);
 	debugfs_create_u64("rec_fail_cnt", 0444, d, &bus->rec_fail_cnt);
 	debugfs_create_u64("timeout_cnt", 0444, d, &bus->timeout_cnt);
-#ifdef I2C_MODIFY_SPEED_AT_RUNTIME
 	debugfs_create_file("i2c_speed", 0644, d, bus, &i2c_clock_ops);
-#endif
 	bus->debugfs = d;
 }
 
