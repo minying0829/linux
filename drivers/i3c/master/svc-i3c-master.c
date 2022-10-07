@@ -480,6 +480,7 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	struct i3c_device_info info = {};
 	unsigned long fclk_rate, fclk_period_ns;
 	unsigned int high_period_ns, od_low_period_ns;
+	unsigned int scl_period_ns, pp_high_period;
 	u32 ppbaud, pplow, odhpp, odbaud, odstop, i2cbaud, reg;
 	int ret;
 
@@ -501,20 +502,28 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	fclk_period_ns = DIV_ROUND_UP(1000000000, fclk_rate);
 
 	/*
-	 * Using I3C Push-Pull mode, target is 12.5MHz/80ns period.
-	 * Simplest configuration is using a 50% duty-cycle of 40ns.
+	 * Configure for Push-Pull mode.
 	 */
-	ppbaud = DIV_ROUND_UP(40, fclk_period_ns) - 1;
-	pplow = 0;
+	scl_period_ns = DIV_ROUND_UP(1000000000, bus->scl_rate.i3c);
+	if (bus->scl_rate.i3c == 10000000) {
+		/* Workaround for npcm8xx: 40/60 ns */
+		ppbaud = DIV_ROUND_UP(40, fclk_period_ns) - 1;
+		pplow = DIV_ROUND_UP(20, fclk_period_ns);
+	} else {
+		/* 50% duty-cycle */
+		ppbaud = DIV_ROUND_UP((scl_period_ns / 2), fclk_period_ns) - 1;
+		pplow = 0;
+	}
+	pp_high_period = (ppbaud + 1) * fclk_period_ns;
 
 	/*
-	 * Using I3C Open-Drain mode, target is 4.17MHz/240ns with a
+	 * Using I3C Open-Drain mode, target is 1MHz/1000ns with a
 	 * duty-cycle tuned so that high levels are filetered out by
 	 * the 50ns filter (target being 40ns).
 	 */
 	odhpp = 1;
 	high_period_ns = (ppbaud + 1) * fclk_period_ns;
-	odbaud = DIV_ROUND_UP(240 - high_period_ns, high_period_ns) - 1;
+	odbaud = DIV_ROUND_UP(1000 - high_period_ns, high_period_ns) - 1;
 	od_low_period_ns = (odbaud + 1) * high_period_ns;
 
 	switch (bus->mode) {
@@ -555,6 +564,11 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	      SVC_I3C_MCONFIG_I2CBAUD(i2cbaud);
 	writel(reg, master->regs + SVC_I3C_MCONFIG);
 
+	dev_info(master->dev, "fclk=%lu, period_ns=%lu\n", fclk_rate, fclk_period_ns);
+	dev_info(master->dev, "i3c scl_rate=%lu\n", bus->scl_rate.i3c);
+	dev_info(master->dev, "pp_high=%u, pp_low=%lu\n", pp_high_period,
+			(ppbaud + 1 + pplow) * fclk_period_ns);
+	dev_info(master->dev, "od_high=%d, od_low=%d\n", pp_high_period, od_low_period_ns);
 	/* Master core's registration */
 	ret = i3c_master_get_free_addr(m, 0);
 	if (ret < 0)
