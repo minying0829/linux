@@ -995,6 +995,27 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 	u32 reg;
 	int ret;
 
+	/*
+	 * There is a chance that first tx data bit is lost when it
+	 * is not ready in FIFO right after address phase.
+	 * Prepare data before starting the transfer to fix this problem.
+	 */
+	if (!rnw && xfer_len) {
+		ret = readl_poll_timeout(master->regs + SVC_I3C_MDATACTRL,
+					 reg,
+					 !(reg & SVC_I3C_MDATACTRL_TXFULL),
+					 0, 1000);
+		if (ret)
+			return ret;
+
+		if (xfer_len == 1)
+			writel(out[0], master->regs + SVC_I3C_MWDATABE);
+		else
+			writel(out[0], master->regs + SVC_I3C_MWDATAB);
+		xfer_len--;
+		out++;
+	}
+
 	writel(SVC_I3C_MCTRL_REQUEST_START_ADDR |
 	       xfer_type |
 	       SVC_I3C_MCTRL_IBIRESP_NACK |
