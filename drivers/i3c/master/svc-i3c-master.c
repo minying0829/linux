@@ -375,6 +375,9 @@ static void svc_i3c_master_ibi_work(struct work_struct *work)
 					 SVC_I3C_MSTATUS_IBIWON(val), 0, 1000);
 	if (ret) {
 		dev_err(master->dev, "Timeout when polling for IBIWON\n");
+		/* Cancel AUTOIBI */
+		writel(0, master->regs + SVC_I3C_MCTRL);
+		svc_i3c_master_clear_merrwarn(master);
 		goto reenable_ibis;
 	}
 
@@ -1012,8 +1015,14 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 		goto emit_stop;
 	}
 
-	if (!continued)
+	if (!continued) {
 		svc_i3c_master_emit_stop(master);
+		/*
+		 * Workaround: clear the invalid SlaveStart event under
+		 * bad signals condition.
+		 */
+		writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MSTATUS);
+	}
 
 	return 0;
 
@@ -1380,6 +1389,9 @@ static int svc_i3c_master_enable_ibi(struct i3c_dev_desc *dev)
 {
 	struct i3c_master_controller *m = i3c_dev_get_master(dev);
 	struct svc_i3c_master *master = to_svc_i3c_master(m);
+
+	/* Clear the interrupt status */
+	writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MSTATUS);
 	svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_SLVSTART);
 
 	return i3c_master_enec_locked(m, dev->info.dyn_addr, I3C_CCC_EVENT_SIR);
