@@ -634,8 +634,8 @@
 				reg = <0xfff10000 0x1000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i3c0_pins>;
-				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>;
-				clock-names = "pclk", "fast_clk";
+				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>, <&clk_refclk>;
+				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <3>;
 				#size-cells = <0>;
@@ -647,8 +647,8 @@
 				reg = <0xfff11000 0x1000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i3c1_pins>;
-				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>;
-				clock-names = "pclk", "fast_clk";
+				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>, <&clk_refclk>;
+				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <3>;
 				#size-cells = <0>;
@@ -660,8 +660,8 @@
 				reg = <0xfff12000 0x1000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i3c2_pins>;
-				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>;
-				clock-names = "pclk", "fast_clk";
+				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>, <&clk_refclk>;
+				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <3>;
 				#size-cells = <0>;
@@ -673,8 +673,8 @@
 				reg = <0xfff13000 0x1000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i3c3_pins>;
-				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>;
-				clock-names = "pclk", "fast_clk";
+				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>, <&clk_refclk>;
+				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <3>;
 				#size-cells = <0>;
@@ -686,8 +686,8 @@
 				reg = <0xfff14000 0x1000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i3c4_pins>;
-				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>;
-				clock-names = "pclk", "fast_clk";
+				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>, <&clk_refclk>;
+				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <3>;
 				#size-cells = <0>;
@@ -699,8 +699,8 @@
 				reg = <0xfff15000 0x1000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i3c5_pins>;
-				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>;
-				clock-names = "pclk", "fast_clk";
+				clocks = <&clk NPCM8XX_CLK_AHB>, <&clk NPCM8XX_CLK_RCP>, <&clk_refclk>;
+				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <3>;
 				#size-cells = <0>;
