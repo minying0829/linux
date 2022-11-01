@@ -32,6 +32,7 @@
 #define   SVC_I3C_MCONFIG_ODBAUD(x) FIELD_PREP(GENMASK(23, 16), (x))
 #define   SVC_I3C_MCONFIG_ODHPP(x) FIELD_PREP(BIT(24), (x))
 #define   SVC_I3C_MCONFIG_SKEW(x) FIELD_PREP(GENMASK(27, 25), (x))
+#define   SVC_I3C_MCONFIG_SKEW_MASK GENMASK(27, 25)
 #define   SVC_I3C_MCONFIG_I2CBAUD(x) FIELD_PREP(GENMASK(31, 28), (x))
 
 #define SVC_I3C_MCTRL        0x084
@@ -226,6 +227,15 @@ static bool svc_i3c_master_error(struct svc_i3c_master *master)
 	}
 
 	return false;
+}
+
+static void svc_i3c_master_set_sda_skew(struct svc_i3c_master *master, int skew)
+{
+	u32 val;
+
+	val = readl(master->regs + SVC_I3C_MCONFIG) & ~SVC_I3C_MCONFIG_SKEW_MASK;
+	val |= SVC_I3C_MCONFIG_SKEW(skew);
+	writel(val, master->regs + SVC_I3C_MCONFIG);
 }
 
 static void svc_i3c_master_enable_interrupts(struct svc_i3c_master *master, u32 mask)
@@ -530,14 +540,10 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	}
 	pp_high_period = (ppbaud + 1) * fclk_period_ns;
 
-	/*
-	 * Using I3C Open-Drain mode, target is 1MHz/1000ns with a
-	 * duty-cycle tuned so that high levels are filetered out by
-	 * the 50ns filter (target being 40ns).
-	 */
-	odhpp = 1;
+	/* Using I3C Open-Drain mode, target is 1MHz/1000ns with 50% duty cycle */
+	odhpp = 0;
 	high_period_ns = (ppbaud + 1) * fclk_period_ns;
-	odbaud = DIV_ROUND_UP(1000 - high_period_ns, high_period_ns) - 1;
+	odbaud = DIV_ROUND_UP(500, high_period_ns) - 1;
 	od_low_period_ns = (odbaud + 1) * high_period_ns;
 
 	switch (bus->mode) {
@@ -582,7 +588,9 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	dev_info(master->dev, "i3c scl_rate=%lu\n", bus->scl_rate.i3c);
 	dev_info(master->dev, "pp_high=%u, pp_low=%lu\n", pp_high_period,
 			(ppbaud + 1 + pplow) * fclk_period_ns);
-	dev_info(master->dev, "od_high=%d, od_low=%d\n", pp_high_period, od_low_period_ns);
+	dev_info(master->dev, "od_high=%d, od_low=%d\n", odhpp ? pp_high_period : od_low_period_ns,
+		 od_low_period_ns);
+	dev_info(master->dev, "mconfig=0x%x\n", readl(master->regs + SVC_I3C_MCONFIG));
 	/* Master core's registration */
 	ret = i3c_master_get_free_addr(m, 0);
 	if (ret < 0)
@@ -927,7 +935,14 @@ static int svc_i3c_master_do_daa(struct i3c_master_controller *m)
 	}
 
 	spin_lock_irqsave(&master->xferqueue.lock, flags);
+	/*
+	 * Fix SCL/SDA timing issue during DAA.
+	 * Set SKEW bit to 1 before initiating a DAA, set SKEW bit to 0
+	 * after DAA is completed.
+	 */
+	svc_i3c_master_set_sda_skew(master, 1);
 	ret = svc_i3c_master_do_daa_locked(master, addrs, &dev_nb);
+	svc_i3c_master_set_sda_skew(master, 0);
 	spin_unlock_irqrestore(&master->xferqueue.lock, flags);
 	if (ret) {
 		svc_i3c_master_emit_stop(master);
