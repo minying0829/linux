@@ -1072,6 +1072,13 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 	if (ret)
 		goto emit_stop;
 
+	reg = readl(master->regs + SVC_I3C_MSTATUS);
+	if (SVC_I3C_MSTATUS_NACKED(reg)) {
+		dev_dbg(master->dev, "addr 0x%x NACK\n", addr);
+		ret = -EIO;
+		goto emit_stop;
+	}
+
 	if (rnw)
 		ret = svc_i3c_master_read(master, in, xfer_len);
 	else
