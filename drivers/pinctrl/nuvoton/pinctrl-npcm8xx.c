@@ -404,7 +404,7 @@ static const int fm0_pins[] = { 194, 195, 196, 202, 199, 198, 197 };
 
 static const int gpio1836_pins[] = { 183, 184, 185, 186 };
 static const int gpio1889_pins[] = { 188, 189 };
-static const int gpio187_pins[] = { 187 };
+static const int gpo187_pins[] = { 187 };
 
 static const int cp1urxd_pins[] = { 41 };
 static const int r3rxer_pins[] = { 212 };
@@ -707,7 +707,7 @@ struct npcm8xx_group {
 	NPCM8XX_GRP(fm0), \
 	NPCM8XX_GRP(gpio1836), \
 	NPCM8XX_GRP(gpio1889), \
-	NPCM8XX_GRP(gpio187), \
+	NPCM8XX_GRP(gpo187), \
 	NPCM8XX_GRP(cp1urxd), \
 	NPCM8XX_GRP(r3rxer), \
 	NPCM8XX_GRP(cp1gpio2c), \
@@ -803,6 +803,7 @@ struct npcm8xx_group {
 	NPCM8XX_GRP(smb12), \
 	NPCM8XX_GRP(smb13), \
 	NPCM8XX_GRP(smb14), \
+	NPCM8XX_GRP(smb14b), \
 	NPCM8XX_GRP(smb15), \
 	NPCM8XX_GRP(smb15b), \
 	NPCM8XX_GRP(smb16), \
@@ -957,7 +958,7 @@ NPCM8XX_SFUNC(fm1);
 NPCM8XX_SFUNC(fm0);
 NPCM8XX_SFUNC(gpio1836);
 NPCM8XX_SFUNC(gpio1889);
-NPCM8XX_SFUNC(gpio187);
+NPCM8XX_SFUNC(gpo187);
 NPCM8XX_SFUNC(cp1urxd);
 NPCM8XX_SFUNC(r3rxer);
 NPCM8XX_SFUNC(cp1gpio2c);
@@ -1053,6 +1054,7 @@ NPCM8XX_SFUNC(smb11);
 NPCM8XX_SFUNC(smb12);
 NPCM8XX_SFUNC(smb13);
 NPCM8XX_SFUNC(smb14);
+NPCM8XX_SFUNC(smb14b);
 NPCM8XX_SFUNC(smb15);
 NPCM8XX_SFUNC(smb16);
 NPCM8XX_SFUNC(smb16b);
@@ -1181,7 +1183,7 @@ static struct npcm8xx_func npcm8xx_funcs[] = {
 	NPCM8XX_MKFUNC(fm0),
 	NPCM8XX_MKFUNC(gpio1836),
 	NPCM8XX_MKFUNC(gpio1889),
-	NPCM8XX_MKFUNC(gpio187),
+	NPCM8XX_MKFUNC(gpo187),
 	NPCM8XX_MKFUNC(cp1urxd),
 	NPCM8XX_MKFUNC(r3rxer),
 	NPCM8XX_MKFUNC(cp1gpio2c),
@@ -1277,6 +1279,7 @@ static struct npcm8xx_func npcm8xx_funcs[] = {
 	NPCM8XX_MKFUNC(smb12),
 	NPCM8XX_MKFUNC(smb13),
 	NPCM8XX_MKFUNC(smb14),
+	NPCM8XX_MKFUNC(smb14b),
 	NPCM8XX_MKFUNC(smb15),
 	NPCM8XX_MKFUNC(smb16),
 	NPCM8XX_MKFUNC(smb16b),
@@ -1446,7 +1449,7 @@ static const struct npcm8xx_pincfg pincfg[] = {
 	NPCM8XX_PINCFG(29,	smb4, MFSEL1, 1,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		0),
 	NPCM8XX_PINCFG(30,	smb3, MFSEL1, 0,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		0),
 	NPCM8XX_PINCFG(31,	smb3, MFSEL1, 0,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		0),
-	NPCM8XX_PINCFG(32,	spi0cs1, MFSEL1, 3,	smb14, MFSEL7, 26,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		SLEW),
+	NPCM8XX_PINCFG(32,	spi0cs1, MFSEL1, 3,	smb14b, MFSEL7, 26,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		SLEW),
 	NPCM8XX_PINCFG(33,	i3c4, MFSEL6, 10,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		SLEW),
 	NPCM8XX_PINCFG(34,	i3c4, MFSEL6, 10,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		SLEW),
 	NPCM8XX_PINCFG(37,	smb3c, I2CSEGSEL, 12,	smb23, MFSEL5, 31,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		SLEW),
@@ -1599,7 +1602,7 @@ static const struct npcm8xx_pincfg pincfg[] = {
 	NPCM8XX_PINCFG(184,	spi3, MFSEL4, 16,	gpio1836, MFSEL6, 19,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
 	NPCM8XX_PINCFG(185,	spi3, MFSEL4, 16,	gpio1836, MFSEL6, 19,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
 	NPCM8XX_PINCFG(186,	spi3, MFSEL4, 16,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12)),
-	NPCM8XX_PINCFG(187,	gpio187, MFSEL7, 24,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		0),
+	NPCM8XX_PINCFG(187,	gpo187, MFSEL7, 24,	smb14b, MFSEL7, 26,	spi3cs1, MFSEL4, 17,	none, NONE, 0,		none, NONE, 0,		0),
 	NPCM8XX_PINCFG(188,	spi3quad, MFSEL4, 20,	spi3cs2, MFSEL4, 18,	gpio1889, MFSEL7, 25,	none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
 	NPCM8XX_PINCFG(189,	spi3quad, MFSEL4, 20,	spi3cs3, MFSEL4, 19,	gpio1889, MFSEL7, 25,	none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
 	NPCM8XX_PINCFG(190,	nprd_smi, FLOCKR1, 20,	none, NONE, 0,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(2, 4)),
@@ -1695,7 +1698,7 @@ static const struct pinctrl_pin_desc npcm8xx_pins[] = {
 	PINCTRL_PIN(29, "GPIO29/SMB4_SCL"),
 	PINCTRL_PIN(30, "GPIO30/SMB3_SDA"),
 	PINCTRL_PIN(31, "GPIO31/SMB3_SCL"),
-	PINCTRL_PIN(32, "GPIO32/SMB14_SCL/SPI0_nCS1"),
+	PINCTRL_PIN(32, "GPIO32/SMB14B_SCL/SPI0_nCS1"),
 	PINCTRL_PIN(33, "I3C4_SCL"),
 	PINCTRL_PIN(34, "I3C4_SDA"),
 	PINCTRL_PIN(37, "GPIO37/SMB3C_SDA/SMB23_SDA"),
@@ -1848,7 +1851,7 @@ static const struct pinctrl_pin_desc npcm8xx_pins[] = {
 	PINCTRL_PIN(184, "GPIO184/SPI3_D0/STRAP13"),
 	PINCTRL_PIN(185, "GPIO185/SPI3_D1"),
 	PINCTRL_PIN(186, "GPIO186/SPI3_nCS0"),
-	PINCTRL_PIN(187, "GPIO187/SPI3_nCS1_SMB14_SDA"),
+	PINCTRL_PIN(187, "GPO187/SPI3_nCS1_SMB14B_SDA"),
 	PINCTRL_PIN(188, "GPIO188/SPI3_D2/SPI3_nCS2"),
 	PINCTRL_PIN(189, "GPIO189/SPI3_D3/SPI3_nCS3"),
 	PINCTRL_PIN(190, "GPIO190/nPRD_SMI"),
