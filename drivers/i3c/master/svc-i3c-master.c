@@ -10,6 +10,7 @@
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/completion.h>
+#include <linux/debugfs.h>
 #include <linux/errno.h>
 #include <linux/i3c/master.h>
 #include <linux/interrupt.h>
@@ -197,6 +198,7 @@ struct svc_i3c_master {
 		/* Prevent races within IBI handlers */
 		spinlock_t lock;
 	} ibi;
+	struct dentry *debugfs;
 };
 
 /**
@@ -325,6 +327,12 @@ static void svc_i3c_master_emit_stop(struct svc_i3c_master *master)
 	 * correctly if a start condition follows too rapidly.
 	 */
 	udelay(1);
+
+	/*
+	 * Workaround: clear the spurious SlaveStart event under
+	 * bad signals condition.
+	 */
+	writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MSTATUS);
 }
 
 static int svc_i3c_master_handle_ibi(struct svc_i3c_master *master,
@@ -407,8 +415,6 @@ static void svc_i3c_master_ibi_work(struct work_struct *work)
 					 SVC_I3C_MSTATUS_IBIWON(val), 0, 1000);
 	if (ret) {
 		dev_err(master->dev, "Timeout when polling for IBIWON\n");
-		/* Cancel AUTOIBI */
-		writel(0, master->regs + SVC_I3C_MCTRL);
 		svc_i3c_master_clear_merrwarn(master);
 		goto reenable_ibis;
 	}
@@ -475,6 +481,8 @@ static void svc_i3c_master_ibi_work(struct work_struct *work)
 	}
 
 reenable_ibis:
+	/* Clear AUTOIBI in case it is not started yet */
+	writel(0, master->regs + SVC_I3C_MCTRL);
 	svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_SLVSTART);
 }
 
@@ -503,9 +511,9 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	struct i3c_bus *bus = i3c_master_get_bus(m);
 	struct i3c_device_info info = {};
 	unsigned long fclk_rate, fclk_period_ns;
-	unsigned int high_period_ns, od_low_period_ns;
+	unsigned int high_period_ns, od_low_period_ns, i2c_period_ns;
 	unsigned int scl_period_ns, pp_high_period;
-	u32 ppbaud, pplow, odhpp, odbaud, odstop, i2cbaud, reg;
+	u32 ppbaud, pplow, odhpp, odbaud, odstop = 0, i2cbaud, reg, div;
 	int ret;
 
 	ret = pm_runtime_resume_and_get(master->dev);
@@ -546,35 +554,17 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	odbaud = DIV_ROUND_UP(500, high_period_ns) - 1;
 	od_low_period_ns = (odbaud + 1) * high_period_ns;
 
-	switch (bus->mode) {
-	case I3C_BUS_MODE_PURE:
-		i2cbaud = 0;
-		odstop = 0;
-		break;
-	case I3C_BUS_MODE_MIXED_FAST:
-	case I3C_BUS_MODE_MIXED_LIMITED:
-		/*
-		 * Using I2C Fm+ mode, target is 1MHz/1000ns, the difference
-		 * between the high and low period does not really matter.
-		 */
-		i2cbaud = DIV_ROUND_UP(1000, od_low_period_ns) - 2;
+	/* Configure for I2C mode */
+	i2c_period_ns = DIV_ROUND_UP(1000000000, bus->scl_rate.i2c);
+	div = DIV_ROUND_UP(i2c_period_ns, od_low_period_ns);
+	i2cbaud = (div / 2) + (div % 2);
+
+	if (bus->mode != I3C_BUS_MODE_PURE)
 		odstop = 1;
-		break;
-	case I3C_BUS_MODE_MIXED_SLOW:
-		/*
-		 * Using I2C Fm mode, target is 0.4MHz/2500ns, with the same
-		 * constraints as the FM+ mode.
-		 */
-		i2cbaud = DIV_ROUND_UP(2500, od_low_period_ns) - 2;
-		odstop = 1;
-		break;
-	default:
-		goto rpm_out;
-	}
 
 	reg = SVC_I3C_MCONFIG_MASTER_EN |
 	      SVC_I3C_MCONFIG_DISTO(0) |
-	      SVC_I3C_MCONFIG_HKEEP(0) |
+	      SVC_I3C_MCONFIG_HKEEP(3) |
 	      SVC_I3C_MCONFIG_ODSTOP(odstop) |
 	      SVC_I3C_MCONFIG_PPBAUD(ppbaud) |
 	      SVC_I3C_MCONFIG_PPLOW(pplow) |
@@ -954,7 +944,8 @@ static int svc_i3c_master_do_daa(struct i3c_master_controller *m)
 	for (i = 0; i < dev_nb; i++) {
 		ret = i3c_master_add_i3c_dev_locked(m, addrs[i]);
 		if (ret)
-			goto rpm_out;
+			dev_err(master->dev, "Unable to add i3c dev@0x%x, err %d\n",
+				addrs[i], ret);
 	}
 
 	/* Configure IBI auto-rules */
@@ -1098,11 +1089,6 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 
 	if (!continued) {
 		svc_i3c_master_emit_stop(master);
-		/*
-		 * Workaround: clear the invalid SlaveStart event under
-		 * bad signals condition.
-		 */
-		writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MSTATUS);
 
 		/* Wait idle if stop is sent. */
 		readl_poll_timeout(master->regs + SVC_I3C_MSTATUS, reg,
@@ -1556,6 +1542,39 @@ static void svc_i3c_master_unprepare_clks(struct svc_i3c_master *master)
 	clk_disable_unprepare(master->sclk);
 }
 
+static struct dentry *svc_i3c_debugfs_dir;
+static int debug_show(struct seq_file *seq, void *v)
+{
+	struct svc_i3c_master *master = seq->private;
+
+	seq_printf(seq, "MSTATUS=0x%x\n", readl(master->regs + SVC_I3C_MSTATUS));
+	seq_printf(seq, "MERRWARN=0x%x\n", readl(master->regs + SVC_I3C_MERRWARN));
+	seq_printf(seq, "MCTRL=0x%x\n", readl(master->regs + SVC_I3C_MCTRL));
+	seq_printf(seq, "MDATACTRL=0x%x\n", readl(master->regs + SVC_I3C_MDATACTRL));
+	seq_printf(seq, "MCONFIG=0x%x\n", readl(master->regs + SVC_I3C_MCONFIG));
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(debug);
+
+static void svc_i3c_init_debugfs(struct platform_device *pdev,
+				 struct svc_i3c_master *master)
+{
+	if (!svc_i3c_debugfs_dir) {
+		svc_i3c_debugfs_dir = debugfs_create_dir("svc_i3c", NULL);
+		if (!svc_i3c_debugfs_dir)
+			return;
+	}
+
+	master->debugfs = debugfs_create_dir(dev_name(&pdev->dev),
+					     svc_i3c_debugfs_dir);
+	if (!master->debugfs)
+		return;
+
+	debugfs_create_file("debug", 0444, master->debugfs, master, &debug_fops);
+}
+
 static int svc_i3c_master_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1624,6 +1643,8 @@ static int svc_i3c_master_probe(struct platform_device *pdev)
 
 	svc_i3c_master_reset(master);
 
+	svc_i3c_init_debugfs(pdev, master);
+
 	/* Register the master */
 	ret = i3c_master_register(&master->base, &pdev->dev,
 				  &svc_i3c_master_ops, false);
@@ -1640,6 +1661,7 @@ rpm_disable:
 	pm_runtime_put_noidle(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	debugfs_remove_recursive(master->debugfs);
 
 err_disable_clks:
 	svc_i3c_master_unprepare_clks(master);
@@ -1651,6 +1673,8 @@ static int svc_i3c_master_remove(struct platform_device *pdev)
 {
 	struct svc_i3c_master *master = platform_get_drvdata(pdev);
 	int ret;
+
+	debugfs_remove_recursive(master->debugfs);
 
 	ret = i3c_master_unregister(&master->base);
 	if (ret)
