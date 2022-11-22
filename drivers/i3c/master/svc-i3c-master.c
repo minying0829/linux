@@ -1200,7 +1200,7 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 	}
 
 	if (rdterm > SVC_I3C_MAX_RDTERM)
-		rdterm = 0;
+		rdterm = SVC_I3C_MAX_RDTERM;
 
 	if (use_dma) {
 		if (xfer_len > MAX_DMA_COUNT) {
