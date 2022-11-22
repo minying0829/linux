@@ -596,10 +596,10 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	}
 	pp_high_period = (ppbaud + 1) * fclk_period_ns;
 
-	/* Using I3C Open-Drain mode, target is 1MHz/1000ns with 50% duty cycle */
-	odhpp = 0;
+	/* Configure Open-Drain clock, up to 4.17MHz/240ns */
+	odhpp = 1;
 	high_period_ns = (ppbaud + 1) * fclk_period_ns;
-	odbaud = DIV_ROUND_UP(500, high_period_ns) - 1;
+	odbaud = DIV_ROUND_UP(200, high_period_ns) - 1;
 	od_low_period_ns = (odbaud + 1) * high_period_ns;
 
 	/* Configure for I2C mode */
