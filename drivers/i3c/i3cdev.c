@@ -192,6 +192,7 @@ i3cdev_do_priv_xfer(struct i3c_device *dev, struct i3c_ioc_priv_xfer *xfers,
 			if (copy_to_user((void __user *)(uintptr_t)xfers[i].data,
 					 data_ptrs[i], xfers[i].len))
 				ret = -EFAULT;
+			xfers[i].len = k_xfers[i].len;
 		}
 	}
 
@@ -226,13 +227,18 @@ i3cdev_ioc_priv_xfer(struct i3c_device *i3c, unsigned int cmd,
 {
 	struct i3c_ioc_priv_xfer *k_xfers;
 	unsigned int nxfers;
-	int ret;
+	int ret, i;
 
 	k_xfers = i3cdev_get_ioc_priv_xfer(cmd, u_xfers, &nxfers);
 	if (IS_ERR_OR_NULL(k_xfers))
 		return PTR_ERR(k_xfers);
 
 	ret = i3cdev_do_priv_xfer(i3c, k_xfers, nxfers);
+
+	for (i = 0; i < nxfers; i++) {
+		if (k_xfers[i].rnw)
+			put_user(k_xfers[i].len, &u_xfers[i].len);
+	}
 
 	kfree(k_xfers);
 
