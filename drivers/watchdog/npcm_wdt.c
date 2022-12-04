@@ -210,7 +210,8 @@ static void npcm_get_reset_status(struct npcm_wdt *wdt, struct device *dev)
 	regmap_read(gcr_regmap, NPCM7XX_RESSR_OFFSET, &rstval);
 	if (!rstval) {
 		regmap_read(gcr_regmap, NPCM7XX_INTCR2_OFFSET, &rstval);
-		rstval = ~rstval;
+		if (of_device_is_compatible(dev->of_node, "nuvoton,npcm750-wdt"))
+			rstval = ~rstval;
 	}
 
 	if (rstval & wdt->card_reset)
