@@ -648,6 +648,7 @@
 				interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <3>;
 				#size-cells = <0>;
+				dma-mux = <6>;
 				status = "disabled";
 			};
 

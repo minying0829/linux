@@ -526,7 +526,7 @@
 				status = "okay";
 				i2c-scl-hz = <400000>;
 				i3c-scl-hz = <12500000>;
-				dma-mux = <6>;
+				use-dma;
 			};
 
 			i3c1: i3c@fff11000 {
