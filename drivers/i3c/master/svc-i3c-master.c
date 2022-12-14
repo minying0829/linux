@@ -976,6 +976,7 @@ static int svc_i3c_master_do_daa(struct i3c_master_controller *m)
 	}
 
 	mutex_lock(&master->xferqueue.lock);
+	local_irq_disable();
 	/*
 	 * Fix SCL/SDA timing issue during DAA.
 	 * Set SKEW bit to 1 before initiating a DAA, set SKEW bit to 0
@@ -984,6 +985,7 @@ static int svc_i3c_master_do_daa(struct i3c_master_controller *m)
 	svc_i3c_master_set_sda_skew(master, 1);
 	ret = svc_i3c_master_do_daa_locked(master, addrs, &dev_nb);
 	svc_i3c_master_set_sda_skew(master, 0);
+	local_irq_enable();
 	mutex_unlock(&master->xferqueue.lock);
 	if (ret) {
 		svc_i3c_master_emit_stop(master);
@@ -1220,6 +1222,10 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 		svc_i3c_master_start_dma(master);
 	}
 
+	/* Prevent fifo operation from delay by interrupt */
+	if (!use_dma)
+		local_irq_disable();
+
 	writel(SVC_I3C_MCTRL_REQUEST_START_ADDR |
 	       xfer_type |
 	       SVC_I3C_MCTRL_IBIRESP_NACK |
@@ -1266,12 +1272,16 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 		readl_poll_timeout(master->regs + SVC_I3C_MSTATUS, reg,
 				   SVC_I3C_MSTATUS_STATE_IDLE(reg), 0, 1000);
 	}
+	if (!use_dma)
+		local_irq_enable();
 
 	return 0;
 
 emit_stop:
 	if (use_dma)
 		svc_i3c_master_stop_dma(master);
+	else
+		local_irq_enable();
 	svc_i3c_master_emit_stop(master);
 	svc_i3c_master_clear_merrwarn(master);
 
