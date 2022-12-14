@@ -242,6 +242,7 @@ struct svc_i3c_master {
 	dma_addr_t dma_tx_addr;
 	dma_addr_t dma_rx_addr;
 	struct npcm_dma_xfer_desc dma_xfer;
+	u32 mint_save;
 };
 
 /**
@@ -1079,6 +1080,12 @@ static void svc_i3c_master_stop_dma(struct svc_i3c_master *master)
 	writel(0, master->dma_regs + NPCM_GDMA_CTL(DMA_CH_TX));
 	writel(0, master->dma_regs + NPCM_GDMA_CTL(DMA_CH_RX));
 	writel(0, master->regs + SVC_I3C_MDMACTRL);
+
+	/* Disable COMPLETE interrupt */
+	writel(SVC_I3C_MINT_COMPLETE, master->regs + SVC_I3C_MINTCLR);
+
+	/* Restore the interrupt mask */
+	svc_i3c_master_enable_interrupts(master, master->mint_save);
 }
 
 static void svc_i3c_master_write_dma_table(const u8 *src, u32 *dst, int len)
@@ -1116,6 +1123,9 @@ static int svc_i3c_master_start_dma(struct svc_i3c_master *master)
 					       (u32 *)master->dma_tx_buf,
 					       xfer->len);
 
+	/* Disable all other i3c interrupts */
+	master->mint_save = readl(master->regs + SVC_I3C_MINTSET);
+	svc_i3c_master_disable_interrupts(master);
 	/* Use I3C Complete interrupt to notify the transaction compeltion */
 	svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_COMPLETE);
 
