@@ -120,6 +120,13 @@
 		};
 	};
 
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
+
 	ahb {
 		/*rstc: rstc@f0801000 {
 			nuvoton,sw-reset-number = <2>;
