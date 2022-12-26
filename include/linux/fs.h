@@ -1437,7 +1437,7 @@ struct super_block {
 	const struct xattr_handler **s_xattr;
 #ifdef CONFIG_FS_ENCRYPTION
 	const struct fscrypt_operations	*s_cop;
-	struct key		*s_master_keys; /* master crypto keys in use */
+	struct fscrypt_keyring	*s_master_keys; /* master crypto keys in use */
 #endif
 #ifdef CONFIG_FS_VERITY
 	const struct fsverity_operations *s_vop;
@@ -1817,6 +1817,14 @@ struct dir_context {
  */
 #define REMAP_FILE_ADVISORY		(REMAP_FILE_CAN_SHORTEN)
 
+/*
+ * These flags control the behavior of vfs_copy_file_range().
+ * They are not available to the user via syscall.
+ *
+ * COPY_FILE_SPLICE: call splice direct instead of fs clone/copy ops
+ */
+#define COPY_FILE_SPLICE		(1 << 0)
+
 struct iov_iter;
 
 struct file_operations {
@@ -1859,6 +1867,7 @@ struct file_operations {
 				   struct file *file_out, loff_t pos_out,
 				   loff_t len, unsigned int remap_flags);
 	int (*fadvise)(struct file *, loff_t, loff_t, int);
+	bool may_pollfree;
 } __randomize_layout;
 
 struct inode_operations {
@@ -2214,6 +2223,8 @@ enum file_time_flags {
 
 extern bool atime_needs_update(const struct path *, struct inode *);
 extern void touch_atime(const struct path *);
+int inode_update_time(struct inode *inode, struct timespec64 *time, int flags);
+
 static inline void file_accessed(struct file *file)
 {
 	if (!(file->f_flags & O_NOATIME))
