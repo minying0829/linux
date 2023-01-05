@@ -1140,12 +1140,11 @@ static int svc_i3c_master_start_dma(struct svc_i3c_master *master)
 
 	/*
 	 * Enable DMA
-	 * Use Demand mode
 	 * Source Address Fixed for RX
 	 * Destination Address Fixed for TX
 	 * Use 32-bit transfer width for TX (queal to MWDATAB register width)
 	 */
-	val = NPCM_GDMA_CTL_GDMAEN | NPCM_GDMA_CTL_DM;
+	val = NPCM_GDMA_CTL_GDMAEN;
 	if (xfer->rnw)
 		val |= NPCM_GDMA_CTL_SAFIX | NPCM_GDMA_CTL_GDMAMS(2);
 	else
