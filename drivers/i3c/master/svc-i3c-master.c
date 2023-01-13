@@ -601,10 +601,10 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	}
 	pp_high_period = (ppbaud + 1) * fclk_period_ns;
 
-	/* Configure Open-Drain clock, up to 4.17MHz/240ns */
-	odhpp = 1;
+	/* Using I3C Open-Drain mode, target is 1MHz/1000ns with 50% duty cycle */
+	odhpp = 0;
 	high_period_ns = (ppbaud + 1) * fclk_period_ns;
-	odbaud = DIV_ROUND_UP(200, high_period_ns) - 1;
+	odbaud = DIV_ROUND_UP(500, high_period_ns) - 1;
 	od_low_period_ns = (odbaud + 1) * high_period_ns;
 
 	/* Configure for I2C mode */
@@ -1501,11 +1501,18 @@ static int svc_i3c_master_send_ccc_cmd(struct i3c_master_controller *m,
 {
 	struct svc_i3c_master *master = to_svc_i3c_master(m);
 	bool broadcast = cmd->id < 0x80;
+	int ret;
 
 	if (broadcast)
-		return svc_i3c_master_send_bdcast_ccc_cmd(master, cmd);
+		ret = svc_i3c_master_send_bdcast_ccc_cmd(master, cmd);
 	else
-		return svc_i3c_master_send_direct_ccc_cmd(master, cmd);
+		ret = svc_i3c_master_send_direct_ccc_cmd(master, cmd);
+
+	if (ret)
+		dev_dbg(master->dev, "send ccc 0x%02x %s, ret = %d\n",
+				cmd->id, broadcast ? "(broadcast)" : "", ret);
+
+	return ret;
 }
 
 static int svc_i3c_master_priv_xfers(struct i3c_dev_desc *dev,
