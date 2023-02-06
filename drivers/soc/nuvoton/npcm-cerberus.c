@@ -50,7 +50,6 @@ struct cerberus_msg {
  * @wr_win: Mailbox shmem write window
  * @mutex: Lock for serializing the writes
  * @lock: Spinlock for IO operations
- * @wq: Waitqueue to wait for messsages from cerberus TIP
  * @mq: Queue to hold the messages read from Cerberus TIP
  * @miscdev: Miscellaneous device structure
  */
@@ -62,7 +61,6 @@ struct cerberus_drvinfo {
 	struct mbx_shmem wr_win;
 	struct mutex mutex;
 	spinlock_t lock;
-	wait_queue_head_t wq;
 	DECLARE_KFIFO_PTR(mq, struct cerberus_msg);
 	struct miscdevice miscdev;
 };
@@ -92,10 +90,7 @@ ssize_t cerberus_read(struct file *fp, char __user *buf, size_t count,
 		return 0;
 
 	spin_lock_irqsave(&cerberus->lock, flags);
-
-	ret = wait_event_interruptible_lock_irq_timeout(
-		cerberus->wq, (kfifo_is_empty(&cerberus->mq) == false),
-		cerberus->lock, HZ/1000);
+	ret = kfifo_len(&cerberus->mq);
 	if (ret > 0)
 		kfifo_out(&cerberus->mq, rmsg, 1);
 
@@ -133,7 +128,6 @@ static void msg_from_cerberus(struct mbox_client *cl, void *msg)
 		kfifo_skip(&cerberus->mq);
 	}
 	kfifo_in(&cerberus->mq, (struct cerberus_msg *)cerberus->rd_win.off, 1);
-	wake_up(&cerberus->wq);
 	spin_unlock_irqrestore(&cerberus->lock, flags);
 }
 
@@ -150,13 +144,13 @@ ssize_t cerberus_write(struct file *fp, const char __user *buf, size_t count,
 
 	/* offset always should be 0 */
 	*ppos = 0;
-	
+
 	wmsg = kmalloc(sizeof(struct cerberus_msg), GFP_KERNEL);
 	if (!wmsg)
 		return 0;
 
 	memset(wmsg, 0, sizeof(struct cerberus_msg));
-	
+
 	if (copy_from_user(wmsg->buf, buf, count)) {
 		ret = -EFAULT;
 		goto fail_free_resources;
@@ -165,7 +159,7 @@ ssize_t cerberus_write(struct file *fp, const char __user *buf, size_t count,
 	mutex_lock(&cerberus->mutex);
 
 	memcpy_toio(cerberus->wr_win.off, wmsg->buf, count);
-	
+
 	/** Ring the doorbell (Blocking call) and wait for the data
 	 * to be received by TIP.
 	 */
@@ -232,7 +226,6 @@ static int cerberus_probe(struct platform_device *pdev)
 
 	mutex_init(&cerberus->mutex);
 	spin_lock_init(&cerberus->lock);
-	init_waitqueue_head(&cerberus->wq);
 	ret = kfifo_alloc(&cerberus->mq, MSG_QUEUE_SIZE, GFP_KERNEL);
 	if (ret)
 		return ret;
@@ -309,3 +302,4 @@ module_platform_driver(cerberus_mbox_client_driver);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Parvathi Bhogaraju <pbhogaraju@microsoft.com>");
 MODULE_DESCRIPTION("Mailbox client driver for cerberus on TIP");
+
