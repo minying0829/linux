@@ -127,6 +127,25 @@
 		};
 	};
 
+	tip_sram: sram@fffce000 {
+		compatible = "mmio-sram";
+		reg = <0 0xfffce000 0 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0xfffce000 0x1000>;
+		ch0_shm: ch_shm@0 {
+			reg = <0 0x1000>;
+		};
+	};
+
+	tip {
+		compatible = "nuvoton,cerberus";
+		mboxes = <&tip_mbox 0 16>; /*channel 0, 16th doorbell */
+		mbox-names = "cerberus";
+		shmem = <&ch0_shm>;
+		status = "okay";
+	};
+
 	ahb {
 		/*rstc: rstc@f0801000 {
 			nuvoton,sw-reset-number = <2>;
@@ -371,6 +390,10 @@
 		video: video@f0810000 {
 			status = "okay";
 			memory-region = <&video_memory>;
+		};
+
+		tip_mbox: mailbox@f080d000 {
+			status = "okay";
 		};
 
 		apb {
