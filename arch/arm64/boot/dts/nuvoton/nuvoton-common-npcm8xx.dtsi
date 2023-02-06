@@ -338,6 +338,14 @@
 			status = "disabled";
 		};
 
+		tip_mbox: mailbox@f080d000 {
+			compatible = "nuvoton,npcm845-mbox";
+			reg = <0 0xf080d000 0 0x1000>;
+			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
 		apb {
 			#address-cells = <1>;
 			#size-cells = <1>;
