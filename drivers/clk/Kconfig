@@ -333,6 +333,12 @@ config COMMON_CLK_NXP
 	help
 	  Support for clock providers on NXP platforms.
 
+config COMMON_CLK_NPCM8XX
+	tristate "Clock driver for the NPCM8XX SoC Family"
+	depends on ARCH_NPCM || COMPILE_TEST
+	help
+          This driver supports the clocks on the Nuvoton BMC NPCM8XX SoC Family.
+
 config COMMON_CLK_PALMAS
 	tristate "Clock driver for TI Palmas devices"
 	depends on MFD_PALMAS
