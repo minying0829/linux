@@ -67,3 +67,5 @@ obj-$(CONFIG_TMR_MANAGER)      += xilinx_tmr_manager.o
 obj-$(CONFIG_TMR_INJECT)	+= xilinx_tmr_inject.o
 obj-$(CONFIG_TPS6594_ESM)	+= tps6594-esm.o
 obj-$(CONFIG_TPS6594_PFSM)	+= tps6594-pfsm.o
+obj-$(CONFIG_NPCM_LPC_BPC)	+= npcm7xx-lpc-bpc.o
+obj-$(CONFIG_NPCM_PCI_MBOX)	+= npcm7xx-pci-mbox.o
