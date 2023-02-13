@@ -69,4 +69,5 @@ obj-$(CONFIG_TPS6594_ESM)	+= tps6594-esm.o
 obj-$(CONFIG_TPS6594_PFSM)	+= tps6594-pfsm.o
 obj-$(CONFIG_NPCM_LPC_BPC)	+= npcm7xx-lpc-bpc.o
 obj-$(CONFIG_NPCM_PCI_MBOX)	+= npcm7xx-pci-mbox.o
+obj-$(CONFIG_NPCM7XX_JTAG_MASTER) += npcm7xx-jtag-master.o
 obj-$(CONFIG_NPCM8XX_JTAG_MASTER) += npcm8xx-jtag-master.o
