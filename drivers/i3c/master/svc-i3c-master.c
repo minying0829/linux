@@ -536,19 +536,23 @@ static irqreturn_t svc_i3c_master_irq_handler(int irq, void *dev_id)
 	struct svc_i3c_master *master = (struct svc_i3c_master *)dev_id;
 	u32 active = readl(master->regs + SVC_I3C_MINTMASKED);
 
-	if (SVC_I3C_MSTATUS_COMPLETE(active))
+	if (SVC_I3C_MSTATUS_COMPLETE(active)) {
+		/* Disable COMPLETE interrupt */
+		writel(SVC_I3C_MINT_COMPLETE, master->regs + SVC_I3C_MINTCLR);
+
 		complete(&master->xfer_comp);
+	}
 
 	if (SVC_I3C_MSTATUS_SLVSTART(active)) {
 		/* Clear the interrupt status */
 		writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MSTATUS);
 
+		/* Disable SLVSTART interrupt */
+		writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MINTCLR);
+
 		/* Handle the interrupt in a non atomic context */
 		queue_work(master->base.wq, &master->ibi_work);
 	}
-
-
-	svc_i3c_master_disable_interrupts(master);
 
 	return IRQ_HANDLED;
 }
@@ -1754,6 +1758,9 @@ static int svc_i3c_setup_dma(struct platform_device *pdev, struct svc_i3c_master
 	struct device *dev = &pdev->dev;
 	u32 dma_conn, reg_base;
 	int ret;
+
+	if (!of_property_read_bool(dev->of_node, "use-dma"))
+		return 0;
 
 	ret = of_property_read_u32(dev->of_node, "dma-mux", &dma_conn);
 	if (ret) {
