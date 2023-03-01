@@ -1598,13 +1598,13 @@ static const struct npcm8xx_pincfg pincfg[] = {
 	NPCM8XX_PINCFG(180,	r1, MFSEL3, 9,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
 	NPCM8XX_PINCFG(181,	r1, MFSEL3, 9,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		GPO),
 	NPCM8XX_PINCFG(182,	r1, MFSEL3, 9,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		GPO),
-	NPCM8XX_PINCFG(183,	spi3, MFSEL4, 16,	gpio1836, MFSEL6, 19,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
-	NPCM8XX_PINCFG(184,	spi3, MFSEL4, 16,	gpio1836, MFSEL6, 19,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
-	NPCM8XX_PINCFG(185,	spi3, MFSEL4, 16,	gpio1836, MFSEL6, 19,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
-	NPCM8XX_PINCFG(186,	spi3, MFSEL4, 16,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12)),
+	NPCM8XX_PINCFG(183,	gpio1836, MFSEL6, 19,	spi3, MFSEL4, 16,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
+	NPCM8XX_PINCFG(184,	gpio1836, MFSEL6, 19,	spi3, MFSEL4, 16,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
+	NPCM8XX_PINCFG(185,	gpio1836, MFSEL6, 19,	spi3, MFSEL4, 16,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
+	NPCM8XX_PINCFG(186,	gpio1836, MFSEL6, 19,	spi3, MFSEL4, 16,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(8, 12)),
 	NPCM8XX_PINCFG(187,	gpo187, MFSEL7, 24,	smb14b, MFSEL7, 26,	spi3cs1, MFSEL4, 17,	none, NONE, 0,		none, NONE, 0,		0),
-	NPCM8XX_PINCFG(188,	spi3quad, MFSEL4, 20,	spi3cs2, MFSEL4, 18,	gpio1889, MFSEL7, 25,	none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
-	NPCM8XX_PINCFG(189,	spi3quad, MFSEL4, 20,	spi3cs3, MFSEL4, 19,	gpio1889, MFSEL7, 25,	none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
+	NPCM8XX_PINCFG(188,	gpio1889, MFSEL7, 25,	spi3cs2, MFSEL4, 18,	spi3quad, MFSEL4, 20,	none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
+	NPCM8XX_PINCFG(189,	gpio1889, MFSEL7, 25,	spi3cs3, MFSEL4, 19,	spi3quad, MFSEL4, 20,	none, NONE, 0,		none, NONE, 0,		DS(8, 12) | SLEW),
 	NPCM8XX_PINCFG(190,	nprd_smi, FLOCKR1, 20,	none, NONE, 0,	none, NONE, 0,		none, NONE, 0,		none, NONE, 0,		DS(2, 4)),
 	NPCM8XX_PINCFG(191,	spi1d23, MFSEL5, 3,	spi1cs2, MFSEL5, 4,	fm1, MFSEL6, 17,	smb15, MFSEL7, 27,	none, NONE, 0,		DS(0, 2)),  /* XX */
 	NPCM8XX_PINCFG(192,	spi1d23, MFSEL5, 3,	spi1cs3, MFSEL5, 5,	fm1, MFSEL6, 17,	smb15, MFSEL7, 27,	none, NONE, 0,		DS(0, 2)),  /* XX */
@@ -2222,7 +2222,7 @@ static int npcm8xx_gpio_request_enable(struct pinctrl_dev *pctldev,
 		return -EINVAL;
 	}
 
-	if (pin[0] == 187)
+	if ((pin[0] >= 183) && (pin[0] <= 189))
 		mode = pincfg[pin[0]].fn0;
 
 	npcm8xx_setfunc(npcm->gcr_regmap, &offset, 1, mode);
