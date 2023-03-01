@@ -537,7 +537,7 @@ static const int smb20_pins[] = { 234, 235 };
 static const int smb21_pins[] = { 169, 170 };
 static const int smb22_pins[] = { 40, 39 };
 static const int smb23_pins[] = { 38, 37 };
-static const int smb23b_pins[] = { 134, 134 };
+static const int smb23b_pins[] = { 134, 135 };
 
 static const int fanin0_pins[] = { 64 };
 static const int fanin1_pins[] = { 65 };
@@ -1798,8 +1798,8 @@ static const struct pinctrl_pin_desc npcm8xx_pins[] = {
 	PINCTRL_PIN(131, "GPIO131/SMB925_SDA"),
 	PINCTRL_PIN(132, "GPIO132/SMB1026_SCL"),
 	PINCTRL_PIN(133, "GPIO133/SMB1026_SDA"),
-	PINCTRL_PIN(134, "GPIO134/SMB11_SCL"),
-	PINCTRL_PIN(135, "GPIO135/SMB11_SDA"),
+	PINCTRL_PIN(134, "GPIO134/SMB11_SCL/SMB23B_SCL"),
+	PINCTRL_PIN(135, "GPIO135/SMB11_SDA/SMB23B_SDA"),
 	PINCTRL_PIN(136, "GPIO136/JM1_TCK"),
 	PINCTRL_PIN(137, "GPIO137/JM1_TDO"),
 	PINCTRL_PIN(138, "GPIO138/JM1_TMS"),
