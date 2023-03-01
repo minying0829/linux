@@ -1308,6 +1308,10 @@
 			groups = "smb23";
 			function = "smb23";
 		};
+		smb23b_pins: smb23b-pins {
+			groups = "smb23b";
+			function = "smb23b";
+		};
 		smb4d_pins: smb4d-pins {
 			groups = "smb4d";
 			function = "smb4d";
