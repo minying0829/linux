@@ -1496,6 +1496,14 @@
 			groups = "r2md";
 			function = "r2md";
 		};
+		gpio1836_pins: gpio1836_pins {
+			groups = "gpio1836";
+			function = "gpio1836";
+		};
+		gpio1889_pins: gpio1889_pins {
+			groups = "gpio1889";
+			function = "gpio1889";
+		};
 		r3rxer_pins: r3rxer_pins {
 			groups = "r3rxer";
 			function = "r3rxer";
