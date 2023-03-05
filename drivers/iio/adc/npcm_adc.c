@@ -253,8 +253,8 @@ static irqreturn_t npcm_adc_isr(int irq, void *data)
 	regtemp = ioread32(info->regs + NPCM_ADCCON);
 	if (regtemp & NPCM_ADCCON_ADC_INT_ST) {
 		iowrite32(regtemp, info->regs + NPCM_ADCCON);
-		wake_up_interruptible(&info->wq);
 		info->int_status = true;
+		wake_up_interruptible(&info->wq);
 	}
 
 	return IRQ_HANDLED;
