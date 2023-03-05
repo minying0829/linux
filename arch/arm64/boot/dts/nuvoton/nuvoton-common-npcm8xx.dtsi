@@ -1692,9 +1692,33 @@
 			groups = "smb6";
 			function = "smb6";
 		};
+		smb6b_pins: smb6b-pins {
+			groups = "smb6b";
+			function = "smb6b";
+		};
+		smb6c_pins: smb6c-pins {
+			groups = "smb6c";
+			function = "smb6c";
+		};
+		smb6d_pins: smb6d-pins {
+			groups = "smb6d";
+			function = "smb6d";
+		};
 		smb7_pins: smb7-pins {
 			groups = "smb7";
 			function = "smb7";
+		};
+		smb7b_pins: smb7b-pins {
+			groups = "smb7b";
+			function = "smb7b";
+		};
+		smb7c_pins: smb7c-pins {
+			groups = "smb7c";
+			function = "smb7c";
+		};
+		smb7d_pins: smb7d-pins {
+			groups = "smb7d";
+			function = "smb7d";
 		};
 		spi1_pins: spi1-pins {
 			groups = "spi1";
