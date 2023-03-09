@@ -2046,8 +2046,14 @@ static int npcm8xx_gpio_request_enable(struct pinctrl_dev *pctldev,
 				       unsigned int offset)
 {
 	struct npcm8xx_pinctrl *npcm = pinctrl_dev_get_drvdata(pctldev);
+	const unsigned int *pin = &offset;
+	int mode = fn_gpio;
 
-	npcm8xx_setfunc(npcm->gcr_regmap, &offset, 1, fn_gpio);
+	if (pin[0] == 187)
+		mode = pincfg[pin[0]].fn0;
+
+	npcm8xx_setfunc(npcm->gcr_regmap, &offset, 1, mode);
+
 	return 0;
 }
 
