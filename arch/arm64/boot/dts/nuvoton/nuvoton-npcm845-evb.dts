@@ -450,7 +450,7 @@
 			};
 
 			watchdog1: watchdog@901c {
-				nuvoton,reset-priority = <155>;
+				nuvoton,restart-priority = <155>;
 				nuvoton,card-reset-type = "porst";
 				nuvoton,ext1-reset-type = "wd1";
 				nuvoton,ext2-reset-type = "sw2";
