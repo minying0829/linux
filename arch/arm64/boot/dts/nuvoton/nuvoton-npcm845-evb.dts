@@ -60,9 +60,9 @@
 		i2c26 = &i2c26;
 		spi0 = &spi1;
 		fiu0 = &fiu0;
-		fiu1 = &fiu1;
-		fiu2 = &fiu3;
-		fiu3 = &fiux;
+		fiu1 = &fiu3;
+		fiu2 = &fiux;
+		fiu3 = &fiu1;
 	};
 
 	chosen {
