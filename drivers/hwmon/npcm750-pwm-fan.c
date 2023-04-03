@@ -571,16 +571,20 @@ static const struct hwmon_chip_info npcm8xx_chip_info = {
 	.info = npcm8xx_info,
 };
 
-static u32 npcm7xx_pwm_init(struct npcm7xx_pwm_fan_data *data)
+static u32 npcm7xx_pwm_init(struct device *dev, 
+			    struct npcm7xx_pwm_fan_data *data)
 {
 	int m, ch;
 	u32 prescale_val, output_freq;
 
 	data->pwm_clk_freq = clk_get_rate(data->pwm_clk);
-
-	/* Adjust NPCM7xx PWMs output frequency to ~25Khz */
 	output_freq = data->pwm_clk_freq / PWN_CNT_DEFAULT;
-	prescale_val = DIV_ROUND_CLOSEST(output_freq, PWM_OUTPUT_FREQ_25KHZ);
+
+	if (of_property_read_u32(dev->of_node, "nuvoton,pwm-prescale",
+				 &prescale_val))
+		/* Adjust NPCM7xx  PWMs output frequency to ~25Khz */
+		prescale_val = DIV_ROUND_CLOSEST(output_freq,
+						 PWM_OUTPUT_FREQ_25KHZ);
 
 	/* If prescale_val = 0, then the prescale output clock is stopped */
 	if (prescale_val < MIN_PRESCALE1)
@@ -877,7 +881,7 @@ static int npcm7xx_pwm_fan_probe(struct platform_device *pdev)
 		return PTR_ERR(data->fan_clk);
 	}
 
-	output_freq = npcm7xx_pwm_init(data);
+	output_freq = npcm7xx_pwm_init(dev, data);
 
 	for (cnt = 0; cnt < NPCM7XX_PWM_MAX_MODULES  ; cnt++)
 		mutex_init(&data->pwm_lock[cnt]);
