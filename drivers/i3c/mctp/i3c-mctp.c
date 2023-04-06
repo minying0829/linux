@@ -245,7 +245,7 @@ static ssize_t i3c_mctp_read(struct file *file, char __user *buf, size_t count, 
 
 	rx_packet = ptr_ring_consume(&client->rx_queue);
 	if (!rx_packet)
-		return -EAGAIN;
+		return 0;
 
 	if (count > rx_packet->size)
 		count = rx_packet->size;
