@@ -2214,8 +2214,8 @@ static int svc_i3c_master_probe(struct platform_device *pdev)
 
 	INIT_WORK(&master->hj_work, svc_i3c_master_hj_work);
 	INIT_WORK(&master->ibi_work, svc_i3c_master_ibi_work);
-	of_property_read_string(pdev->dev.of_node, "initial-role", &role);
-	if (!strcmp("target", role))
+	ret = of_property_read_string(pdev->dev.of_node, "initial-role", &role);
+	if (!ret && !strcmp("target", role))
 		ret = devm_request_irq(dev, master->irq, svc_i3c_slave_irq_handler,
 				       IRQF_NO_SUSPEND, "svc-i3c-irq", master);
 	else
