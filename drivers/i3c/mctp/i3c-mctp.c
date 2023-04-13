@@ -50,6 +50,7 @@ struct i3c_mctp {
 	struct i3c_mctp_client *peci_client;
 	u16 max_read_len;
 	u16 max_write_len;
+	bool poll_mode;
 };
 
 struct i3c_mctp_client {
@@ -556,6 +557,7 @@ static int i3c_mctp_probe(struct i3c_device *i3cdev)
 		INIT_DELAYED_WORK(&priv->polling_work, i3c_mctp_polling_work);
 		schedule_delayed_work(&priv->polling_work, msecs_to_jiffies(POLLING_TIMEOUT_MS));
 		ibi_payload_size = 0;
+		priv->poll_mode = true;
 	}
 
 	i3c_device_get_info(i3cdev, &info);
@@ -596,6 +598,8 @@ static void i3c_mctp_remove(struct i3c_device *i3cdev)
 {
 	struct i3c_mctp *priv = dev_get_drvdata(i3cdev_to_dev(i3cdev));
 
+	if (priv->poll_mode)
+		cancel_delayed_work_sync(&priv->polling_work);
 	i3c_device_disable_ibi(i3cdev);
 	i3c_device_free_ibi(i3cdev);
 	i3c_mctp_client_free(priv->default_client);

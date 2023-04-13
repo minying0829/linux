@@ -2284,7 +2284,7 @@ static int svc_i3c_master_remove(struct platform_device *pdev)
 
 	debugfs_remove_recursive(master->debugfs);
 
-	ret = i3c_master_unregister(&master->base);
+	ret = i3c_unregister(&master->base);
 	if (ret)
 		return ret;
 
