@@ -273,19 +273,22 @@
 			status = "disabled";
 		};
 
-		pci_rc: pcie@e1000000 {
+		pcie: pcie@e1000000 {
+			compatible = "nuvoton,npcm750-pcie";
+			device_type = "pci";
+			reg = <0xE1000000 0x1000>,
+				<0xE8000000 0x1000>;	
+			bus-range = <0x0 0xF>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			#interrupt-cells = <1>;
-			compatible = "nuvoton,npcm750-pcirc";
-			reg = <0xe1000000 0x1000>;
-			device_type = "pci";
+ 			ranges = <0x01000000 0 0xe9000000 0xe9000000 0 0x00010000
+				  0x02000000 0 0xea000000 0xea000000 0 0x02000000>;
+ 			resets = <&rstc NPCM7XX_RESET_IPSRST3 NPCM7XX_RESET_PCIE_RC>;
 			interrupts = <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>;
-			bus-range = <0x00 0xff>;
-			ranges = <0x02000000 0 0xea000000
-				0xea000000 0 0x02000000>;
-			resets = <&rstc NPCM7XX_RESET_IPSRST3 NPCM7XX_RESET_PCIE_RC>;
-			status = "disabled";
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &gic GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>;
+			nuvoton,sysgcr = <&gcr>;
 		};
 
 		dvc: dvc@f0808000 {
