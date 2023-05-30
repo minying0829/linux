@@ -27,6 +27,7 @@
 #define NPCM7XX_SWR2RST			BIT(27)
 #define NPCM7XX_SWR3RST			BIT(26)
 #define NPCM7XX_SWR4RST			BIT(25)
+#define NPCM8XX_RST			(GENMASK(31, 23) |  GENMASK(15, 12))
 
  /* WD register */
 #define NPCM_WTCR	0x1C
@@ -199,7 +200,7 @@ static const struct watchdog_ops npcm_wdt_ops = {
 static void npcm_get_reset_status(struct npcm_wdt *wdt, struct device *dev)
 {
 	struct regmap *gcr_regmap;
-	u32 rstval;
+	u32 rstval, ressrval;
 
 	gcr_regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "syscon");
 	if (IS_ERR(gcr_regmap)) {
@@ -207,12 +208,27 @@ static void npcm_get_reset_status(struct npcm_wdt *wdt, struct device *dev)
 		return;
 	}
 
-	regmap_read(gcr_regmap, NPCM7XX_RESSR_OFFSET, &rstval);
-	if (!rstval) {
-		regmap_read(gcr_regmap, NPCM7XX_INTCR2_OFFSET, &rstval);
-		if (of_device_is_compatible(dev->of_node, "nuvoton,npcm750-wdt"))
-			rstval = ~rstval;
+	/* In Poleg, the INTCR2 indicate only power reset */
+	regmap_read(gcr_regmap, NPCM7XX_INTCR2_OFFSET, &rstval);
+	if (of_device_is_compatible(dev->of_node, "nuvoton,npcm750-wdt")) {
+		if ((rstval & NPCM7XX_PORST) == 0) {
+			rstval = NPCM7XX_PORST;
+			/* Clear power reset indication */
+			regmap_write(gcr_regmap, NPCM7XX_INTCR2_OFFSET,
+				     rstval | NPCM7XX_PORST);
+		} else {
+			rstval = 0;
+		}
+		regmap_read(gcr_regmap, NPCM7XX_RESSR_OFFSET, &ressrval);
+		rstval |= ressrval;
+		/* After reading the RESSR Clear reset status */
+		regmap_write(gcr_regmap, NPCM7XX_RESSR_OFFSET, ressrval);
 	}
+
+	/* In Arbel, after reading the INTCR2 Clear reset status */
+	if (of_device_is_compatible(dev->of_node, "nuvoton,npcm845-wdt"))
+		regmap_write(gcr_regmap, NPCM7XX_INTCR2_OFFSET,
+			     rstval & ~NPCM8XX_RST);
 
 	if (rstval & wdt->card_reset)
 		wdt->wdd.bootstatus |= WDIOF_CARDRESET;
