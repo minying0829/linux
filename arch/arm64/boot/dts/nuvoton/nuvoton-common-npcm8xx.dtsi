@@ -37,12 +37,12 @@
 		clock-output-names = "mcbypck";
 	};
 
-	 /* external clock signal rg1refck, supplied by the phy */
-	clk_rg1refck: clk-rg1refck {
+	 /* external clock signal sg1refck, supplied by the phy */
+	clk_sg1refck: clk-sg1refck {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <125000000>;
-		clock-output-names = "clk_rg1refck";
+		clock-output-names = "clk_sg1refck";
 	};
 
 	 /* external clock signal rg2refck, supplied by the phy */
@@ -150,7 +150,7 @@
 			clocks	= <&clk NPCM8XX_CLK_AHB>;
 			clock-names = "stmmaceth";
 			pinctrl-names = "default";
-			pinctrl-0 = <&rg1mdio_pins>;
+			pinctrl-0 = <&sg1mdio_pins>;
 			status = "disabled";
 		};
 
@@ -425,7 +425,7 @@
 				compatible = "nuvoton,npcm845-pspi";
 				reg = <0x201000 0x1000>;
 				pinctrl-names = "default";
-				pinctrl-0 = <&pspi2_pins>;
+				pinctrl-0 = <&pspi_pins>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
@@ -1250,9 +1250,9 @@
 			groups = "lkgpo0";
 			function = "lkgpo0";
 		};
-		pspi2_pins: pspi2-pins {
-			groups = "pspi2";
-			function = "pspi2";
+		pspi_pins: pspi-pins {
+			groups = "pspi";
+			function = "pspi";
 		};
 		jm1_pins: jm1-pins {
 			groups = "jm1";
@@ -1530,13 +1530,9 @@
 			groups = "espi";
 			function = "espi";
 		};
-		rg1_pins: rg1-pins {
-			groups = "rg1";
-			function = "rg1";
-		};
-		rg1mdio_pins: rg1mdio-pins {
-			groups = "rg1mdio";
-			function = "rg1mdio";
+		sg1mdio_pins: sg1mdio-pins {
+			groups = "sg1mdio";
+			function = "sg1mdio";
 		};
 		rg2_pins: rg2-pins {
 			groups = "rg2";
@@ -1690,9 +1686,9 @@
 			groups = "scipme";
 			function = "scipme";
 		};
-		sci_pins: sci-pins {
-			groups = "sci";
-			function = "sci";
+		smi_pins: smi-pins {
+			groups = "smi";
+			function = "smi";
 		};
 		smb6_pins: smb6-pins {
 			groups = "smb6";
