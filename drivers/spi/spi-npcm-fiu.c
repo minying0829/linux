@@ -240,6 +240,7 @@ struct npcm_fiu_chip {
 	void __iomem *flash_region_mapped_ptr;
 	struct npcm_fiu_spi *fiu;
 	unsigned long clkrate;
+	bool directw_wr_en;
 	u32 chipselect;
 };
 
@@ -247,6 +248,7 @@ struct npcm_fiu_spi {
 	struct npcm_fiu_chip chip[NPCM_MAX_CHIP_NUM];
 	const struct npcm_fiu_info *info;
 	struct spi_mem_op drd_op;
+	struct spi_mem_op dwr_op;
 	struct resource *res_mem;
 	struct regmap *regmap;
 	unsigned long clkrate;
@@ -310,6 +312,24 @@ static ssize_t npcm_fiu_direct_read(struct spi_mem_dirmap_desc *desc,
 	return len;
 }
 
+static void npcm_fiu_set_dwr(struct npcm_fiu_spi *fiu,
+			     const struct spi_mem_op *op)
+{
+	regmap_update_bits(fiu->regmap, NPCM_FIU_DWR_CFG,
+			   NPCM_FIU_DWR_CFG_WRCMD, op->cmd.opcode);
+	fiu->dwr_op.cmd.opcode = op->cmd.opcode;
+	regmap_update_bits(fiu->regmap, NPCM_FIU_DWR_CFG,
+			   NPCM_FIU_DWR_CFG_DBPCK,
+			   ilog2(op->data.buswidth) <<
+			   NPCM_FIU_DWR_DBPCK_SHIFT);
+	fiu->dwr_op.data.buswidth = op->data.buswidth;
+	regmap_update_bits(fiu->regmap, NPCM_FIU_DWR_CFG,
+			   NPCM_FIU_DWR_CFG_ABPCK,
+			   ilog2(op->addr.buswidth) <<
+			   NPCM_FIU_DWR_ABPCK_SHIFT);
+	fiu->dwr_op.addr.buswidth = op->addr.buswidth;
+}
+
 static ssize_t npcm_fiu_direct_write(struct spi_mem_dirmap_desc *desc,
 				     u64 offs, size_t len, const void *buf)
 {
@@ -321,11 +341,17 @@ static ssize_t npcm_fiu_direct_write(struct spi_mem_dirmap_desc *desc,
 	const u8 *buf_tx = buf;
 	u32 i;
 
-	if (fiu->spix_mode)
+	if (fiu->spix_mode) {
 		for (i = 0 ; i < len ; i++)
 			iowrite8(*(buf_tx + i), dst + i);
-	else
+	} else {
+		if (desc->info.op_tmpl.addr.buswidth != fiu->dwr_op.addr.buswidth ||
+		    desc->info.op_tmpl.data.buswidth != fiu->dwr_op.data.buswidth ||
+		    desc->info.op_tmpl.cmd.opcode != fiu->dwr_op.cmd.opcode)
+			npcm_fiu_set_dwr(fiu, &desc->info.op_tmpl);
+
 		memcpy_toio(dst, buf_tx, len);
+	}
 
 	return len;
 }
@@ -614,12 +640,14 @@ static int npcm_fiu_dirmap_create(struct spi_mem_dirmap_desc *desc)
 		return 0;
 	}
 
-	if (!fiu->spix_mode &&
-	    desc->info.op_tmpl.data.dir == SPI_MEM_DATA_OUT) {
+	if (!fiu->spix_mode && !chip->directw_wr_en && desc->info.op_tmpl.data.dir == SPI_MEM_DATA_OUT) {
 		desc->nodirmap = true;
 		return 0;
 	}
 
+	if (desc->info.op_tmpl.data.dir == SPI_MEM_DATA_OUT)
+		pr_info("Write direct enable cs %d\n\n",desc->mem->spi->chip_select);
+	
 	if (!chip->flash_region_mapped_ptr) {
 		chip->flash_region_mapped_ptr =
 			devm_ioremap(fiu->dev, (fiu->res_mem->start +
@@ -657,7 +685,10 @@ static int npcm_fiu_dirmap_create(struct spi_mem_dirmap_desc *desc)
 			npcm_fiux_set_direct_rd(fiu);
 
 	} else {
-		npcm_fiux_set_direct_wr(fiu);
+		if (!fiu->spix_mode)
+			npcm_fiu_set_dwr(fiu, &desc->info.op_tmpl);
+		else
+			npcm_fiux_set_direct_wr(fiu);
 	}
 
 	return 0;
@@ -698,10 +729,12 @@ static int npcm_fiu_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	struct spi_controller *ctrl;
+	u32 wr_en[NPCM_MAX_CHIP_NUM];
 	struct npcm_fiu_spi *fiu;
 	void __iomem *regbase;
 	struct resource *res;
 	int id, ret;
+	int wr_cnt, i;
 
 	ctrl = devm_spi_alloc_master(dev, sizeof(*fiu));
 	if (!ctrl)
@@ -747,6 +780,21 @@ static int npcm_fiu_probe(struct platform_device *pdev)
 
 	fiu->spix_mode = of_property_read_bool(dev->of_node,
 					       "nuvoton,spix-mode");
+
+	/* 
+	 * For DELL use, this modification will not upstream:
+	 * Adding direct write support for FIUX, the user can choose which 
+	 * CS will use direct write by setting nuvoton,dr_wr_en <cs number> in
+	 * the FIU device tree, for example, nuvoton,dr_wr_en = <1 3>; 
+	 * enable direct writing at CS1 and CS3
+	 */ 
+	wr_cnt = of_property_count_elems_of_size(dev->of_node, "nuvoton,dr_wr_en", sizeof(u32));
+	if (wr_cnt > 0) {
+		of_property_read_u32_array(dev->of_node, "nuvoton,dr_wr_en", wr_en, wr_cnt);
+		for (i = 0 ; i < wr_cnt ; i++)
+			if (wr_en[i] < fiu->info->max_cs)
+				fiu->chip[wr_en[i]].directw_wr_en = true;
+	}
 
 	if ((fiu->info->fiu_id == FIUX) && (fiu->spix_mode == false))
 		regmap_update_bits(fiu->regmap, NPCM_FIU_DRD_CFG,
