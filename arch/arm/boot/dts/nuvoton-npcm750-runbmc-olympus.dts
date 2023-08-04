@@ -111,12 +111,11 @@
 			#size-cells = <1>;
 			bmc@0{
 				label = "bmc";
-				reg = <0x000000 0x2000000>;
+				reg = <0x000000 0x4000000>;
 			};
 			u-boot@0 {
 				label = "u-boot";
-				reg = <0x0000000 0xC0000>;
-				read-only;
+				reg = <0x0000000 0xc0000>;
 			};
 			u-boot-env@100000{
 				label = "u-boot-env";
@@ -128,11 +127,11 @@
 			};
 			rofs@800000 {
 				label = "rofs";
-				reg = <0x800000 0x1500000>;
+				reg = <0x800000 0x3500000>;
 			};
 			rwfs@1d00000 {
 				label = "rwfs";
-				reg = <0x1d00000 0x300000>;
+				reg = <0x3d00000 0x300000>;
 			};
 		};
 	};
