@@ -1262,10 +1262,6 @@
 			groups = "jm2";
 			function = "jm2";
 		};
-		smb4den_pins: smb4den-pins {
-			groups = "smb4den";
-			function = "smb4den";
-		};
 		smb4b_pins: smb4b-pins {
 			groups = "smb4b";
 			function = "smb4b";
