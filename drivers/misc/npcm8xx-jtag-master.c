@@ -729,8 +729,6 @@ static int jtag_open(struct inode *inode, struct file *file)
 	file->private_data = jtag;
 	spin_unlock(&jtag_file_lock);
 
-	jtag_reset_tapstate(jtag);
-
 	return 0;
 }
 
