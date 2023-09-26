@@ -200,6 +200,11 @@ struct npcm_fiu_info {
 	u32 fiu_id;
 	u32 max_map_size;
 	u32 max_cs;
+	u32 clkdiv_reg;
+	u32 clkdiv_mask;
+	u32 clkdiv_bit;
+	u32 clkdiv_max;
+	bool clkset_enable;
 };
 
 struct fiu_data {
@@ -221,14 +226,18 @@ static const struct fiu_data npxm7xx_fiu_data = {
 };
 
 static const struct npcm_fiu_info npxm8xx_fiu_info[] = {
-	{.name = "FIU0", .fiu_id = FIU0,
-		.max_map_size = MAP_SIZE_128MB, .max_cs = 2},
-	{.name = "FIU3", .fiu_id = FIU3,
-		.max_map_size = MAP_SIZE_128MB, .max_cs = 4},
-	{.name = "FIUX", .fiu_id = FIUX,
-		.max_map_size = MAP_SIZE_16MB, .max_cs = 2},
-	{.name = "FIU1", .fiu_id = FIU1,
-		.max_map_size = MAP_SIZE_16MB, .max_cs = 4} };
+	{.name = "FIU0", .fiu_id = FIU0, .max_map_size = MAP_SIZE_128MB,
+		.max_cs = 2, .clkdiv_reg = 0x58, .clkdiv_mask = GENMASK(10, 6),
+		.clkdiv_bit = 6, .clkdiv_max = 32},
+	{.name = "FIU3", .fiu_id = FIU3, .max_map_size = MAP_SIZE_128MB,
+		.max_cs = 4, .clkdiv_reg = 0x08, .clkdiv_mask = GENMASK(10, 6),
+		.clkdiv_bit = 6, .clkdiv_max = 32},
+	{.name = "FIUX", .fiu_id = FIUX, .max_map_size = MAP_SIZE_16MB,
+		.max_cs = 2, .clkdiv_reg = 0x58, .clkdiv_mask = GENMASK(5, 1),
+		.clkdiv_bit = 1, .clkdiv_max = 32},
+	{.name = "FIU1", .fiu_id = FIU1, .max_map_size = MAP_SIZE_16MB,
+		.max_cs = 4, .clkdiv_reg = 0x58, .clkdiv_mask = GENMASK(23, 16),
+		.clkdiv_bit = 16, .clkdiv_max = 256} };
 
 static const struct fiu_data npxm8xx_fiu_data = {
 	.npcm_fiu_data_info = npxm8xx_fiu_info,
@@ -251,10 +260,13 @@ struct npcm_fiu_spi {
 	struct spi_mem_op dwr_op;
 	struct resource *res_mem;
 	struct regmap *regmap;
+	struct regmap *clk_regmap;
 	unsigned long clkrate;
+	unsigned long base_clkrate;
 	struct device *dev;
 	struct clk *clk;
 	bool spix_mode;
+	bool clkset_enable;
 };
 
 static const struct regmap_config npcm_mtd_regmap_config = {
@@ -285,6 +297,23 @@ static void npcm_fiu_set_drd(struct npcm_fiu_spi *fiu,
 	fiu->drd_op.addr.nbytes = op->addr.nbytes;
 }
 
+static int fiu_npcm_clk_set_rate(struct npcm_fiu_spi *fiu,
+				 unsigned long new_clkrate)
+{
+	u32 ckdiv;
+
+	ckdiv = DIV_ROUND_CLOSEST(fiu->base_clkrate, new_clkrate);
+	if ((fiu->info->clkdiv_max < (ckdiv + 1)) || (!ckdiv))
+		return -ENOTSUPP;
+
+	ckdiv--;
+	ckdiv = ckdiv << fiu->info->clkdiv_bit;
+	regmap_write_bits(fiu->clk_regmap, fiu->info->clkdiv_reg,
+			  fiu->info->clkdiv_mask, ckdiv);
+
+	return 0;
+}
+
 static ssize_t npcm_fiu_direct_read(struct spi_mem_dirmap_desc *desc,
 				    u64 offs, size_t len, void *buf)
 {
@@ -294,7 +323,17 @@ static ssize_t npcm_fiu_direct_read(struct spi_mem_dirmap_desc *desc,
 	void __iomem *src = (void __iomem *)(chip->flash_region_mapped_ptr +
 					     offs);
 	u8 *buf_rx = buf;
+	int ret;
 	u32 i;
+
+	if ((fiu->clkset_enable) && (fiu->clkrate != chip->clkrate) && (chip->clkrate > 0)) {
+		ret = fiu_npcm_clk_set_rate(fiu, chip->clkrate);
+		if (ret < 0)
+			dev_dbg(fiu->dev, "Failed setting %lu frequency, stay at %lu frequency\n",
+				chip->clkrate, fiu->clkrate);
+		else
+			fiu->clkrate = chip->clkrate;
+	}
 
 	if (fiu->spix_mode) {
 		for (i = 0 ; i < len ; i++)
@@ -339,7 +378,17 @@ static ssize_t npcm_fiu_direct_write(struct spi_mem_dirmap_desc *desc,
 	void __iomem *dst = (void __iomem *)(chip->flash_region_mapped_ptr +
 					     offs);
 	const u8 *buf_tx = buf;
+	int ret;
 	u32 i;
+
+	if ((fiu->clkset_enable) && (fiu->clkrate != chip->clkrate) && (chip->clkrate > 0)) {
+		ret = fiu_npcm_clk_set_rate(fiu, chip->clkrate);
+		if (ret < 0)
+			dev_dbg(fiu->dev, "Failed setting %lu frequency, stay at %lu frequency\n",
+				chip->clkrate, fiu->clkrate);
+		else
+			fiu->clkrate = chip->clkrate;
+	}
 
 	if (fiu->spix_mode) {
 		for (i = 0 ; i < len ; i++)
@@ -583,11 +632,11 @@ static int npcm_fiu_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 	if (fiu->spix_mode || op->addr.nbytes > 4)
 		return -ENOTSUPP;
 
-	if (fiu->clkrate != chip->clkrate) {
-		ret = clk_set_rate(fiu->clk, chip->clkrate);
+	if ((fiu->clkset_enable) && (fiu->clkrate != chip->clkrate) && (chip->clkrate > 0)) {
+		ret = fiu_npcm_clk_set_rate(fiu, chip->clkrate);
 		if (ret < 0)
-			dev_warn(fiu->dev, "Failed setting %lu frequency, stay at %lu frequency\n",
-				 chip->clkrate, fiu->clkrate);
+			dev_dbg(fiu->dev, "Failed setting %lu frequency, stay at %lu frequency\n",
+				chip->clkrate, fiu->clkrate);
 		else
 			fiu->clkrate = chip->clkrate;
 	}
@@ -699,6 +748,7 @@ static int npcm_fiu_setup(struct spi_device *spi)
 	struct spi_controller *ctrl = spi->master;
 	struct npcm_fiu_spi *fiu = spi_controller_get_devdata(ctrl);
 	struct npcm_fiu_chip *chip;
+	unsigned int val;
 
 	chip = &fiu->chip[spi->chip_select];
 	chip->fiu = fiu;
@@ -706,6 +756,13 @@ static int npcm_fiu_setup(struct spi_device *spi)
 	chip->clkrate = spi->max_speed_hz;
 
 	fiu->clkrate = clk_get_rate(fiu->clk);
+
+	if ((fiu->clkset_enable) && (!fiu->base_clkrate)) {
+		regmap_read(fiu->clk_regmap, fiu->info->clkdiv_reg, &val);
+		val &= fiu->info->clkdiv_mask;
+		val = val >> fiu->info->clkdiv_bit;
+		fiu->base_clkrate = fiu->clkrate * (val + 1);
+	}
 
 	return 0;
 }
@@ -794,6 +851,13 @@ static int npcm_fiu_probe(struct platform_device *pdev)
 		for (i = 0 ; i < wr_cnt ; i++)
 			if (wr_en[i] < fiu->info->max_cs)
 				fiu->chip[wr_en[i]].directw_wr_en = true;
+	}
+
+	fiu->clkset_enable = true;
+	fiu->clk_regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "sysclk");
+	if (IS_ERR(fiu->clk_regmap)) {
+		dev_warn(&pdev->dev, "Failed to find sysclk, disable set dynamic FIU frequancy\n");
+		fiu->clkset_enable = false;
 	}
 
 	if ((fiu->info->fiu_id == FIUX) && (fiu->spix_mode == false))
