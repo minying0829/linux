@@ -2519,7 +2519,9 @@ static int npcm8xx_gpio_of(struct npcm8xx_pinctrl *pctrl)
 				ret = irq;
 				return ret;
 			}
-
+			/* Clear and disable event before GPIO init */
+			iowrite32(0x0, pctrl->gpio_bank[id].base + NPCM8XX_GP_N_EVEN);
+			iowrite32(0xFFFFFFFF, pctrl->gpio_bank[id].base + NPCM8XX_GP_N_EVST);
 			ret = bgpio_init(&pctrl->gpio_bank[id].gc,
 					 pctrl->dev, 4,
 					 pctrl->gpio_bank[id].base +
