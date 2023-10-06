@@ -334,18 +334,19 @@ static struct irq_chip npcm_vwgpio_irqchip = {
 
 static void npcm_espi_vwgpio_init(struct npcm_espi_vw *espi_vw)
 {
-	u32 val = ioread32(espi_vw->regs + ESPI_ESPIIE);
+	u32 val;
 	int i;
-
-	/* enable VWUPD interrupt */
-	val |= ESPIIE_VWUPDIE;
-	iowrite32(val, espi_vw->regs + ESPI_ESPIIE);
 
 	/* Get gpio initial state */
 	memset(&espi_vw->events, 0, sizeof(espi_vw->events));
 	for (i = 0; i < VW_MSGPIO_NUM; i++)
 		espi_vw->events[i].state =
 			vwgpio_get_value(&espi_vw->chip, VM_MSGPIO_START + i);
+
+	/* enable VWUPD interrupt */
+	val = ioread32(espi_vw->regs + ESPI_ESPIIE);
+	val |= ESPIIE_VWUPDIE;
+	iowrite32(val, espi_vw->regs + ESPI_ESPIIE);
 }
 
 static void npcm_espi_vw_config(struct npcm_espi_vw *espi_vw, u8 intwin,
