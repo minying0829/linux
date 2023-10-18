@@ -343,6 +343,12 @@ static int npcm_peci_probe(struct platform_device *pdev)
 		goto err_put_adapter_dev;
 	}
 
+	/* Clear status */
+	regmap_write_bits(priv->regmap, NPCM_PECI_CTL_STS,
+			  NPCM_PECI_INT_MASK, NPCM_PECI_INT_MASK);
+	/* Disable PECI interrupt */
+	regmap_update_bits(priv->regmap, NPCM_PECI_CTL_STS,
+			   NPCM_PECI_CTRL_DONE_INT_EN, 0);
 	ret = devm_request_irq(&pdev->dev, priv->irq, npcm_peci_irq_handler,
 			       0, "peci-npcm-irq", priv);
 	if (ret)
