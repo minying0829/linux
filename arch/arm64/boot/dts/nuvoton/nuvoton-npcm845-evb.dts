@@ -340,7 +340,7 @@
 			status = "okay";
 		};
 
-		pcimbox: pcimbox@f0848000 {
+		pcimbox1: pcimbox@f0848000 {
 			status = "okay";
 		};
 
