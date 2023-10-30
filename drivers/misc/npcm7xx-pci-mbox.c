@@ -62,6 +62,7 @@ static ssize_t npcm7xx_mbox_read(struct file *file, char __user *buf,
 {
 	struct npcm7xx_mbox *mbox = file_mbox(file);
 	unsigned long flags;
+	int i;
 
 	if (!access_ok(buf, count))
 		return -EFAULT;
@@ -78,11 +79,8 @@ static ssize_t npcm7xx_mbox_read(struct file *file, char __user *buf,
 
 	spin_lock_irqsave(&mbox->lock, flags);
 
-	if (copy_to_user((void __user *)buf,
-			 (const void *)(mbox->memory + *ppos), count)) {
-		spin_unlock_irqrestore(&mbox->lock, flags);
-		return -EFAULT;
-	}
+	for (i = 0; i < count; i++)
+		buf[i] = ioread8(mbox->memory + *ppos + i);
 
 	mbox->cif0 = false;
 	spin_unlock_irqrestore(&mbox->lock, flags);
@@ -94,6 +92,7 @@ static ssize_t npcm7xx_mbox_write(struct file *file, const char __user *buf,
 {
 	struct npcm7xx_mbox *mbox = file_mbox(file);
 	unsigned long flags;
+	int i;
 
 	if (!access_ok(buf, count))
 		return -EFAULT;
@@ -103,11 +102,8 @@ static ssize_t npcm7xx_mbox_write(struct file *file, const char __user *buf,
 
 	spin_lock_irqsave(&mbox->lock, flags);
 
-	if (copy_from_user((void *)(mbox->memory + *ppos),
-			   (void __user *)buf, count)) {
-		spin_unlock_irqrestore(&mbox->lock, flags);
-		return -EFAULT;
-	}
+	for (i = 0; i <  count; i++)
+		iowrite8(buf[i], mbox->memory + *ppos + i);
 
 	regmap_update_bits(mbox->regmap, NPCM7XX_MBOX_BMBXCMD,
 			   NPCM7XX_MBOX_ALL_HIF, NPCM7XX_MBOX_HIF_0);
