@@ -255,9 +255,7 @@ static int npcm_usb_reset(struct platform_device *pdev, struct npcm_rc_data *rc)
 		writel(iprst4, rc->base + NPCM_IPSRST4);
 	}
 
-#ifndef CONFIG_ARM64
 	udelay(50);
-#endif
 
 	/* set USB PHY RS bit */
 	regmap_update_bits(gcr_regmap, NPCM_USB1PHYCTL_OFFSET,
