@@ -119,8 +119,18 @@
 		#size-cells = <2>;
 		ranges;
 
-		tip_reserved: tip@0x0 {
-			reg = <0x0 0x0 0x0 0x6200000>;
+		gfx: gfx@0 {
+			reg = <0x0 0x0 0x0 0x1000000>;
+			no-map;
+		};
+
+		fw_reserved: fw@1000000 {
+			reg = <0x0 0x1000000 0x0 0x5000000>;
+		};
+
+		tip_shared_memory: tip_sh@6000000 {
+			reg = <0x0 0x6000000 0x0 0x200000>;
+			no-map;
 		};
 	};
 
