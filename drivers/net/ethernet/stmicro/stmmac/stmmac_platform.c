@@ -21,6 +21,9 @@
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
+void __iomem *npcm_base;
+bool sgmii_npcm = false;
+
 #define IND_AC_INDX	0x1FE
 #define SR_MII_CTRL	0x003E0000 
 #define SR_MII_CTRL1	0x003F0000 
@@ -405,7 +408,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 	struct device_node *np = pdev->dev.of_node;
 	struct plat_stmmacenet_data *plat;
 	struct stmmac_dma_cfg *dma_cfg;
-	void __iomem *base;
 	u16 RegValue; 
 	int phy_mode;
 	int rc;
@@ -646,19 +648,21 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		struct gpio_desc *gpio_evb_id[2];
 		u32 evb_id[2] = {0};
 
-		base = devm_platform_ioremap_resource(pdev, 1);
-		if (IS_ERR(base)) {
+		sgmii_npcm = true;
+		npcm_base = devm_platform_ioremap_resource(pdev, 1);
+		if (IS_ERR(npcm_base)) {
 			dev_warn(&pdev->dev, "devm_platform_ioremap_resource failed\n");
+			sgmii_npcm = false;
 		}
-		iowrite16((u16)(SR_MII_CTRL >> 9), base + IND_AC_INDX);
-		RegValue = ioread16(base + 0x2);
-		RegValue = ioread16(base + 0x0);
+		iowrite16((u16)(SR_MII_CTRL >> 9), npcm_base + IND_AC_INDX);
+		RegValue = ioread16(npcm_base + 0x2);
+		RegValue = ioread16(npcm_base + 0x0);
 		RegValue |= BIT(15);
-		iowrite16(RegValue, base + 0x0);
+		iowrite16(RegValue, npcm_base + 0x0);
 		while (RegValue & BIT(15))
-			RegValue = ioread16(base + 0x0);
+			RegValue = ioread16(npcm_base + 0x0);
 		RegValue &= ~(BIT(12));
-		iowrite16(RegValue, base + 0x0);
+		iowrite16(RegValue, npcm_base + 0x0);
 
 		gpio_evb_id[0] = devm_gpiod_get_index(&pdev->dev, NULL, 0, GPIOD_IN);
 		gpio_evb_id[1] = devm_gpiod_get_index(&pdev->dev, NULL, 1, GPIOD_IN);
@@ -671,8 +675,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		evb_id[1] = gpiod_get_value(gpio_evb_id[1]);		
 		if (evb_id[0] & evb_id[1]) {
 			plat->arbel_rev_a = true;
-			iowrite16((u16)(SR_MII_CTRL1 >> 9), base + IND_AC_INDX);
-			iowrite16(BIT(0), base + 0x1c2);
+			iowrite16((u16)(SR_MII_CTRL1 >> 9), npcm_base + IND_AC_INDX);
+			iowrite16(BIT(0), npcm_base + 0x1c2);
 		}
 	}
 	return plat;
