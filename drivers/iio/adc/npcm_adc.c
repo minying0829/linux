@@ -414,8 +414,11 @@ static int npcm_adc_probe(struct platform_device *pdev)
 		return PTR_ERR(info->adc_clk);
 	}
 
-	/* calculate ADC clock sample rate */
 	reg_con = ioread32(info->regs + NPCM_ADCCON);
+	/* clear ADC interrupt status */
+	if (reg_con & NPCM_ADCCON_ADC_INT_ST) {
+		iowrite32(reg_con, info->regs + NPCM_ADCCON);
+	/* calculate ADC clock sample rate */
 	div = reg_con & NPCM_ADCCON_DIV_MASK;
 	div = div >> NPCM_ADCCON_DIV_SHIFT;
 	info->adc_sample_hz = clk_get_rate(info->adc_clk) / ((div + 1) * 2);
