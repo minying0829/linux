@@ -142,6 +142,7 @@
 #define SVC_I3C_MINTMASKED   0x098
 #define SVC_I3C_MERRWARN     0x09C
 #define   SVC_I3C_MERRWARN_NACK(x) FIELD_GET(BIT(2), (x))
+#define   SVC_I3C_MERRWARN_TIMEOUT BIT(20)
 #define   SVC_I3C_MERRWARN_HCRC(x) FIELD_GET(BIT(10), (x))
 #define SVC_I3C_MDMACTRL     0x0A0
 #define   SVC_I3C_MDMACTRL_DMAFB(x) FIELD_PREP(GENMASK(1, 0), (x))
@@ -230,6 +231,11 @@ struct svc_i3c_xfer {
 	struct svc_i3c_cmd cmds[];
 };
 
+struct svc_i3c_regs_save {
+	u32 mconfig;
+	u32 mdynaddr;
+};
+
 struct npcm_dma_xfer_desc {
 	const u8 *out;
 	u8 *in;
@@ -241,6 +247,7 @@ struct npcm_dma_xfer_desc {
  * @base: I3C master controller
  * @dev: Corresponding device
  * @regs: Memory mapping
+ * @saved_regs: Volatile values for PM operations
  * @free_slots: Bit array of available slots
  * @addrs: Array containing the dynamic addresses of each attached device
  * @descs: Array of descriptors, one per attached device
@@ -265,6 +272,7 @@ struct svc_i3c_master {
 	struct i3c_master_controller base;
 	struct device *dev;
 	void __iomem *regs;
+	struct svc_i3c_regs_save saved_regs;
 	u32 free_slots;
 	u8 addrs[SVC_I3C_MAX_DEVS];
 	struct i3c_dev_desc *descs[SVC_I3C_MAX_DEVS];
@@ -340,6 +348,14 @@ static bool svc_i3c_master_error(struct svc_i3c_master *master)
 	if (SVC_I3C_MSTATUS_ERRWARN(mstatus)) {
 		merrwarn = readl(master->regs + SVC_I3C_MERRWARN);
 		writel(merrwarn, master->regs + SVC_I3C_MERRWARN);
+
+		/* Ignore timeout error */
+		if (merrwarn & SVC_I3C_MERRWARN_TIMEOUT) {
+			dev_dbg(master->dev, "Warning condition: MSTATUS 0x%08x, MERRWARN 0x%08x\n",
+				mstatus, merrwarn);
+			return false;
+		}
+
 		dev_err(master->dev,
 			"Error condition: MSTATUS 0x%08x, MERRWARN 0x%08x\n",
 			mstatus, merrwarn);
@@ -2533,8 +2549,8 @@ static int svc_i3c_master_probe(struct platform_device *pdev)
 		return PTR_ERR(master->sclk);
 
 	master->irq = platform_get_irq(pdev, 0);
-	if (master->irq <= 0)
-		return -ENOENT;
+	if (master->irq < 0)
+		return master->irq;
 
 	master->dev = dev;
 
@@ -2656,10 +2672,28 @@ static int svc_i3c_master_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void svc_i3c_save_regs(struct svc_i3c_master *master)
+{
+	master->saved_regs.mconfig = readl(master->regs + SVC_I3C_MCONFIG);
+	master->saved_regs.mdynaddr = readl(master->regs + SVC_I3C_MDYNADDR);
+}
+
+static void svc_i3c_restore_regs(struct svc_i3c_master *master)
+{
+	if (readl(master->regs + SVC_I3C_MDYNADDR) !=
+	    master->saved_regs.mdynaddr) {
+		writel(master->saved_regs.mconfig,
+		       master->regs + SVC_I3C_MCONFIG);
+		writel(master->saved_regs.mdynaddr,
+		       master->regs + SVC_I3C_MDYNADDR);
+	}
+}
+
 static int __maybe_unused svc_i3c_runtime_suspend(struct device *dev)
 {
 	struct svc_i3c_master *master = dev_get_drvdata(dev);
 
+	svc_i3c_save_regs(master);
 	svc_i3c_master_unprepare_clks(master);
 	pinctrl_pm_select_sleep_state(dev);
 
@@ -2672,6 +2706,8 @@ static int __maybe_unused svc_i3c_runtime_resume(struct device *dev)
 
 	pinctrl_pm_select_default_state(dev);
 	svc_i3c_master_prepare_clks(master);
+
+	svc_i3c_restore_regs(master);
 
 	return 0;
 }
