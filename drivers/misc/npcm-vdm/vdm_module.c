@@ -1229,16 +1229,12 @@ static void vdm_exit(void)
 {
 	struct list_head *pList;
 	vdm_instance_t *pVDM_Instance;
-	unsigned long flags;
-
-	spin_lock_irqsave(&lock,   flags);
 
 	device_destroy(vdm_class , vdm_dev);
 	class_destroy(vdm_class);
 
 	reset_detect_poll = 0;
 	stop_reset_poll = 1;
-	spin_unlock_irqrestore(&lock,   flags);
 	cancel_delayed_work(&reset_poll_work);
 	flush_scheduled_work();	/* wait till polling work finished */
 
