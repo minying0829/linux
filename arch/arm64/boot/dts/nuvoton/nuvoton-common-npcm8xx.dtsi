@@ -271,7 +271,7 @@
 				compatible = "nuvoton,npcm845-pspi";
 				reg = <0x201000 0x1000>;
 				pinctrl-names = "default";
-				pinctrl-0 = <&pspi2_pins>;
+				pinctrl-0 = <&pspi_pins>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
@@ -920,9 +920,9 @@
 			groups = "lkgpo0";
 			function = "lkgpo0";
 		};
-		pspi2_pins: pspi2-pins {
-			groups = "pspi2";
-			function = "pspi2";
+		pspi_pins: pspi-pins {
+			groups = "pspi";
+			function = "pspi";
 		};
 		jm1_pins: jm1-pins {
 			groups = "jm1";
