@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
+#include <linux/reset.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -2548,6 +2549,7 @@ static int svc_i3c_master_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct svc_i3c_master *master;
+	struct reset_control *reset;
 	const char *role;
 	u32 val;
 	int ret;
@@ -2582,6 +2584,12 @@ static int svc_i3c_master_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	reset = devm_reset_control_get(&pdev->dev, NULL);
+	if (!IS_ERR(reset)) {
+		reset_control_assert(reset);
+		udelay(5);
+		reset_control_deassert(reset);
+	}
 	INIT_WORK(&master->hj_work, svc_i3c_master_hj_work);
 	INIT_WORK(&master->ibi_work, svc_i3c_master_ibi_work);
 	ret = of_property_read_string(pdev->dev.of_node, "initial-role", &role);
