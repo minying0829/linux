@@ -551,6 +551,7 @@
 					<&clk NPCM8XX_CLK_REFCLK>;
 				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&rstc 0x74 8>;
 				#address-cells = <3>;
 				#size-cells = <0>;
 				dma-mux = <6>;
@@ -566,6 +567,7 @@
 					<&clk NPCM8XX_CLK_REFCLK>;
 				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&rstc 0x74 9>;
 				#address-cells = <3>;
 				#size-cells = <0>;
 				status = "disabled";
@@ -580,6 +582,7 @@
 					<&clk NPCM8XX_CLK_REFCLK>;
 				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&rstc 0x74 10>;
 				#address-cells = <3>;
 				#size-cells = <0>;
 				status = "disabled";
@@ -594,6 +597,7 @@
 					<&clk NPCM8XX_CLK_REFCLK>;
 				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&rstc 0x74 11>;
 				#address-cells = <3>;
 				#size-cells = <0>;
 				status = "disabled";
@@ -608,6 +612,7 @@
 					<&clk NPCM8XX_CLK_REFCLK>;
 				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&rstc 0x74 12>;
 				#address-cells = <3>;
 				#size-cells = <0>;
 				status = "disabled";
@@ -622,6 +627,7 @@
 					<&clk NPCM8XX_CLK_REFCLK>;
 				clock-names = "pclk", "fast_clk", "slow_clk";
 				interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&rstc 0x74 13>;
 				#address-cells = <3>;
 				#size-cells = <0>;
 				status = "disabled";
