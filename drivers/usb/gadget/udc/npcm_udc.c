@@ -2578,7 +2578,7 @@ static int npcm_proc_read(struct seq_file *m, void *v)
 			s; }),
 		usb_speed_string(portscx_device_speed(tmp_reg)),
 		(tmp_reg & PORTSCX_PHY_LOW_POWER_SPD) ?
-		"Low power mode" : "Normal PHY mode",
+		"Normal PHY mode" : "Low power mode",
 		(tmp_reg & PORTSCX_PORT_RESET) ? "In Reset" :
 		"Not in Reset",
 		(tmp_reg & PORTSCX_PORT_SUSPEND) ? "In " : "Not in",
@@ -2628,7 +2628,7 @@ static int npcm_proc_read(struct seq_file *m, void *v)
 			ep->ep.name, ep_maxpacket(ep), ep_index(ep));
 
 	if (list_empty(&ep->queue)) {
-		seq_printf(m, "its req queue is empty\n\n");
+		seq_puts(m, "its req queue is empty\n\n");
 	} else {
 		list_for_each_entry(req, &ep->queue, queue) {
 			seq_printf(m,
@@ -2639,19 +2639,20 @@ static int npcm_proc_read(struct seq_file *m, void *v)
 	}
 	/* other gadget->eplist ep */
 	list_for_each_entry(ep, &udc->gadget.ep_list, ep.ep_list) {
-		if (ep) {
+		if (ep->ep.desc) {
 			seq_printf(m,
 					"\nFor %s Maxpkt is 0x%x "
 					"index is 0x%x\n",
 					ep->ep.name, ep_maxpacket(ep),
-					ep->ep.desc ? ep_index(ep) : -1);
+					ep_index(ep));
 
 			if (list_empty(&ep->queue)) {
-				seq_printf(m, "its req queue is empty\n\n");
+				seq_puts(m, "its req queue is empty\n\n");
 			} else {
 				list_for_each_entry(req, &ep->queue, queue) {
 					seq_printf(m,
-						"req %p actual 0x%x length 0x%x  buf %p\n",
+						"req %p actual 0x%x length "
+						"0x%x  buf %p\n",
 						&req->req, req->req.actual,
 						req->req.length, req->req.buf);
 					}	/* end for each_entry of ep req */
@@ -2663,14 +2664,8 @@ static int npcm_proc_read(struct seq_file *m, void *v)
 	return 0;
 }
 
-/* seq_file wrappers for procfile show routines */
-static int npcm_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, npcm_proc_read, PDE_DATA(file_inode(file)));
-}
-
-#define create_proc_file() \
-	proc_create_single(proc_filename, 0, NULL, npcm_proc_read)
+#define create_proc_file(udc) \
+	proc_create_single_data(proc_filename, 0, NULL, npcm_proc_read, udc)
 #define remove_proc_file()	remove_proc_entry(proc_filename, NULL)
 
 #else				/* !CONFIG_USB_GADGET_DEBUG_FILES */
