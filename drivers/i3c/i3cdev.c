@@ -179,7 +179,7 @@ i3cdev_do_priv_xfer(struct i3c_device *dev, struct i3c_ioc_priv_xfer *xfers,
 	}
 
 	if (ret < 0) {
-		i--;
+		nxfers = i;
 		goto err_free_mem;
 	}
 
@@ -197,7 +197,7 @@ i3cdev_do_priv_xfer(struct i3c_device *dev, struct i3c_ioc_priv_xfer *xfers,
 	}
 
 err_free_mem:
-	for (; i >= 0; i--)
+	for (i = 0; i < nxfers; i++)
 		kfree(data_ptrs[i]);
 	kfree(data_ptrs);
 err_free_k_xfer:
