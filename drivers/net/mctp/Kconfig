@@ -33,6 +33,24 @@ config MCTP_TRANSPORT_I2C
 	  from DMTF specification DSP0237. A MCTP protocol network device is
 	  created for each I2C bus that has been assigned a mctp-i2c device.
 
+config MCTP_TRANSPORT_I3C
+	tristate "MCTP I3C transport"
+	depends on I3C
+	help
+	  Provides a driver to access MCTP devices over I3C transport,
+	  from DMTF specification DSP0233.
+	  A MCTP protocol network device is created for each I3C bus
+	  having a "mctp-controller" devicetree property.
+
+config MCTP_TRANSPORT_I3C_PEC
+	tristate "MCTP I3C transport support PEC"
+	depends on MCTP_TRANSPORT_I3C
+	default y
+	help
+	  Some mctp i3c devices disable PEC check since it cost much time to
+	  calculate the result of PEC.
+	  Provides a choice to enable/disable append pec byte.
+
 endmenu
 
 endif
