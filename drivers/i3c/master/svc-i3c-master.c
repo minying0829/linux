@@ -293,7 +293,6 @@ struct svc_i3c_master {
 	struct {
 		struct list_head list;
 		struct svc_i3c_xfer *cur;
-		/* Prevent races between transfers */
 	} xferqueue;
 	struct {
 		unsigned int num_slots;
@@ -1676,14 +1675,13 @@ static void svc_i3c_master_enqueue_xfer(struct svc_i3c_master *master,
 	}
 
 	init_completion(&xfer->comp);
-	spin_lock_irqsave(&master->xferqueue.lock, flags);
+
 	if (master->xferqueue.cur) {
 		list_add_tail(&xfer->node, &master->xferqueue.list);
 	} else {
 		master->xferqueue.cur = xfer;
 		svc_i3c_master_start_xfer_locked(master);
 	}
-	spin_unlock_irqrestore(&master->xferqueue.lock, flags);
 
 	pm_runtime_mark_last_busy(master->dev);
 	pm_runtime_put_autosuspend(master->dev);
