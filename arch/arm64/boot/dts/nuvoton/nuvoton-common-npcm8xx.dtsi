@@ -607,7 +607,9 @@
 
 			i3c0: i3c@fff10000 {
 				compatible = "silvaco,i3c-master";
-				reg = <0xfff10000 0x1000>;
+				reg = <0xfff10000 0x1000>,
+				      <0xf0850000 0x1000>,
+				      <0xf0800300 0x4>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i3c0_pins
 						&i3c0_scl_slew
@@ -618,6 +620,7 @@
 				resets = <&rstc 0x74 8>;
 				#address-cells = <3>;
 				#size-cells = <0>;
+				dma-mux = <6>;
 				status = "disabled";
 			};
 
