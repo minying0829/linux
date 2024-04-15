@@ -343,7 +343,7 @@
 				ranges = <0x0 0x7000 0x60>;
 
 				lpc_bpc: lpc_bpc@40 {
-					compatible = "nuvoton,npcm845-lpc-bpc", "nuvoton,npcm750-lpc-bpc";
+					compatible = "nuvoton,npcm-bpc";
 					reg = <0x40 0x20>;
 					interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
