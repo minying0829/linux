@@ -203,7 +203,7 @@
 		};
 
 		ohci1: ohci@f0807000 {
-			compatible = "nuvoton,npcm750-ohci";
+			compatible = "nuvoton,npcm750-ohci", "generic-ohci";
 			reg = <0xf0807000 0x1000>;
 			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
