@@ -747,8 +747,6 @@ static void i3c_device_release(struct device *dev)
 {
 	struct i3c_device *i3cdev = dev_to_i3cdev(dev);
 
-	WARN_ON(i3cdev->desc);
-
 	of_node_put(i3cdev->dev.of_node);
 	kfree(i3cdev);
 }
@@ -2403,7 +2401,6 @@ static void i3c_master_unregister_i3c_devs(struct i3c_master_controller *master)
 		if (!i3cdev->dev)
 			continue;
 
-		i3cdev->dev->desc = NULL;
 		if (device_is_registered(&i3cdev->dev->dev))
 			device_unregister(&i3cdev->dev->dev);
 		else
