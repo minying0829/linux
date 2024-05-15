@@ -2581,7 +2581,9 @@ static int svc_i3c_master_remove(struct platform_device *pdev)
 	struct svc_i3c_master *master = platform_get_drvdata(pdev);
 	int ret;
 
-	svc_i3c_master_disable_interrupts(master);
+	/* Avoid ibi events during driver unbinding */
+	writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MINTCLR);
+
 	debugfs_remove_recursive(master->debugfs);
 
 	ret = i3c_unregister(&master->base);
