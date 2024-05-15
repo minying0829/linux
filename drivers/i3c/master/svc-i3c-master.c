@@ -269,7 +269,7 @@ struct npcm_dma_xfer_desc {
  * @ibi.tbq_slot: To be queued IBI slot
  * @ibi.lock: IBI lock
  * @lock: Transfer lock, prevent concurrent daa/priv_xfer/ccc
- * @req_lock: protect between IBI isr and MCTRL request
+ * @req_lock: protect between IBI isr and bus operation request
  */
 struct svc_i3c_master {
 	struct i3c_master_controller base;
@@ -293,7 +293,6 @@ struct svc_i3c_master {
 	struct {
 		struct list_head list;
 		struct svc_i3c_xfer *cur;
-		/* Prevent races between transfers */
 	} xferqueue;
 	struct {
 		unsigned int num_slots;
@@ -341,6 +340,7 @@ struct svc_i3c_i2c_dev_data {
 };
 
 static int svc_i3c_master_wait_for_complete(struct svc_i3c_master *master);
+static void svc_i3c_master_stop_dma(struct svc_i3c_master *master);
 
 static bool svc_i3c_master_error(struct svc_i3c_master *master)
 {
@@ -682,11 +682,16 @@ static irqreturn_t svc_i3c_master_irq_handler(int irq, void *dev_id)
 	u32 active = readl(master->regs + SVC_I3C_MINTMASKED), mstatus;
 
 	if (SVC_I3C_MSTATUS_COMPLETE(active)) {
-		if (master->dma_xfer.end)
-			svc_i3c_master_emit_stop(master);
+		/* Clear COMPLETE status before emit STOP */
 		writel(SVC_I3C_MINT_COMPLETE, master->regs + SVC_I3C_MSTATUS);
 		/* Disable COMPLETE interrupt */
 		writel(SVC_I3C_MINT_COMPLETE, master->regs + SVC_I3C_MINTCLR);
+
+		if (master->dma_xfer.end) {
+			/* Stop DMA to prevent receiving the data of other transaction */
+			svc_i3c_master_stop_dma(master);
+			svc_i3c_master_emit_stop(master);
+		}
 
 		complete(&master->xfer_comp);
 
@@ -1356,8 +1361,6 @@ static int svc_i3c_master_start_dma(struct svc_i3c_master *master)
 					       (u32 *)master->dma_tx_buf,
 					       xfer->len);
 
-	/* Use I3C Complete interrupt to notify the transaction compeltion */
-	svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_COMPLETE);
 
 	/*
 	 * Setup I3C DMA control
@@ -1467,10 +1470,13 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 		xfer_len -= count;
 	}
 
+	/* Prevent DMA start while IBI isr is running */
+	spin_lock_irqsave(&master->req_lock, flags);
 	if (use_dma) {
 		if (xfer_len > MAX_DMA_COUNT) {
 			dev_err(master->dev, "data is larger than buffer size (%d)\n",
 				MAX_DMA_COUNT);
+			spin_unlock_irqrestore(&master->req_lock, flags);
 			return -EINVAL;
 		}
 		master->dma_xfer.out = out;
@@ -1486,7 +1492,6 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 	if (!use_dma)
 		local_irq_disable();
 
-	spin_lock_irqsave(&master->req_lock, flags);
 	start = jiffies;
 	/*
 	 * IBI payload size may be larger than rdterm, use manual IBI response
@@ -1525,8 +1530,13 @@ retry_start:
 		if (use_dma && rnw)
 			svc_i3c_master_start_dma(master);
 
+		/* Clear COMPLETE status of this IBI transaction */
+		writel(SVC_I3C_MINT_COMPLETE, master->regs + SVC_I3C_MSTATUS);
 		goto retry_start;
 	}
+	/* Use COMPLETE interrupt as notification of transfer completion */
+	if (use_dma)
+		svc_i3c_master_enable_interrupts(master, SVC_I3C_MINT_COMPLETE);
 	spin_unlock_irqrestore(&master->req_lock, flags);
 
 	reg = readl(master->regs + SVC_I3C_MSTATUS);
@@ -1553,9 +1563,11 @@ retry_start:
 					 SVC_I3C_MSTATUS_COMPLETE(reg), 0, 1000);
 		if (ret)
 			goto emit_stop;
+
+		/* If use_dma, COMPLETE bit is cleared in the isr */
+		writel(SVC_I3C_MINT_COMPLETE, master->regs + SVC_I3C_MSTATUS);
 	}
 
-	writel(SVC_I3C_MINT_COMPLETE, master->regs + SVC_I3C_MSTATUS);
 
 	if (master->hdr_mode) {
 		reg = readl(master->regs + SVC_I3C_MERRWARN);
@@ -1582,9 +1594,11 @@ emit_stop:
 		svc_i3c_master_stop_dma(master);
 	else
 		local_irq_enable();
+	spin_lock_irqsave(&master->req_lock, flags);
 	svc_i3c_master_emit_stop(master);
 	svc_i3c_master_clear_merrwarn(master);
 	svc_i3c_master_flush_fifo(master);
+	spin_unlock_irqrestore(&master->req_lock, flags);
 
 	return ret;
 }
@@ -1628,6 +1642,7 @@ static void svc_i3c_master_dequeue_xfer(struct svc_i3c_master *master,
 static void svc_i3c_master_start_xfer_locked(struct svc_i3c_master *master)
 {
 	struct svc_i3c_xfer *xfer = master->xferqueue.cur;
+	unsigned long flags;
 	int ret, i;
 
 	if (!xfer)
@@ -1639,8 +1654,11 @@ static void svc_i3c_master_start_xfer_locked(struct svc_i3c_master *master)
 		return;
 	}
 
+	/* Prevent fifo flush while IBI isr is running */
+	spin_lock_irqsave(&master->req_lock, flags);
 	svc_i3c_master_clear_merrwarn(master);
 	svc_i3c_master_flush_fifo(master);
+	spin_unlock_irqrestore(&master->req_lock, flags);
 
 	for (i = 0; i < xfer->ncmds; i++) {
 		struct svc_i3c_cmd *cmd = &xfer->cmds[i];
