@@ -484,7 +484,7 @@ static int svc_i3c_master_handle_ibi(struct svc_i3c_master *master,
 
 	slot = i3c_generic_ibi_get_free_slot(data->ibi_pool);
 	if (!slot) {
-		dev_err(master->dev, "No free ibi slot\n");
+		dev_err_ratelimited(master->dev, "No free ibi slot\n");
 		return -ENOSPC;
 	}
 
@@ -2598,6 +2598,9 @@ static int svc_i3c_master_remove(struct platform_device *pdev)
 {
 	struct svc_i3c_master *master = platform_get_drvdata(pdev);
 	int ret;
+
+	/* Avoid ibi events during driver unbinding */
+	writel(SVC_I3C_MINT_SLVSTART, master->regs + SVC_I3C_MINTCLR);
 
 	debugfs_remove_recursive(master->debugfs);
 
