@@ -26,6 +26,8 @@
 #define I3C_MCTP_IBI_PAYLOAD_SIZE		2
 #define POLL_MODE				BIT(0)
 
+static DECLARE_WAIT_QUEUE_HEAD(wait_queue);
+
 static const struct i3c_device_id i3c_mctp_ids[] = {
 	I3C_DEVICE(0x319, 0x8000, (void *)POLL_MODE),
 	I3C_CLASS(0xCC, 0),
@@ -56,7 +58,6 @@ struct i3c_mctp {
 struct i3c_mctp_client {
 	struct i3c_mctp *priv;
 	struct ptr_ring rx_queue;
-	wait_queue_head_t wait_queue;
 };
 
 static struct class *i3c_mctp_class;
@@ -112,7 +113,6 @@ static struct i3c_mctp_client *i3c_mctp_client_alloc(struct i3c_mctp *priv)
 	ret = ptr_ring_init(&client->rx_queue, RX_RING_COUNT, GFP_KERNEL);
 	if (ret)
 		return ERR_PTR(ret);
-	init_waitqueue_head(&client->wait_queue);
 out:
 	return client;
 }
@@ -177,7 +177,7 @@ static void i3c_mctp_dispatch_packet(struct i3c_mctp *priv, struct i3c_mctp_pack
 	if (ret)
 		i3c_mctp_packet_free(packet);
 	else
-		wake_up_all(&client->wait_queue);
+		wake_up_all(&wait_queue);
 }
 
 static void i3c_mctp_polling_work(struct work_struct *work)
@@ -244,6 +244,9 @@ static ssize_t i3c_mctp_read(struct file *file, char __user *buf, size_t count, 
 	struct i3c_mctp_client *client = priv->default_client;
 	struct i3c_mctp_packet *rx_packet;
 
+	if (!client)
+		return 0;
+
 	rx_packet = ptr_ring_consume(&client->rx_queue);
 	if (!rx_packet)
 		return 0;
@@ -294,7 +297,10 @@ static __poll_t i3c_mctp_poll(struct file *file, struct poll_table_struct *pt)
 	struct i3c_mctp *priv = file->private_data;
 	__poll_t ret = 0;
 
-	poll_wait(file, &priv->default_client->wait_queue, pt);
+	poll_wait(file, &wait_queue, pt);
+
+	if (!priv->default_client)
+		return EPOLLHUP;
 
 	if (__ptr_ring_peek(&priv->default_client->rx_queue))
 		ret |= EPOLLIN;
@@ -498,7 +504,7 @@ struct i3c_mctp_packet *i3c_mctp_receive_packet(struct i3c_mctp_client *client,
 	struct i3c_mctp_packet *rx_packet;
 	int ret;
 
-	ret = wait_event_interruptible_timeout(client->wait_queue,
+	ret = wait_event_interruptible_timeout(wait_queue,
 					       __ptr_ring_peek(&client->rx_queue), timeout);
 	if (ret < 0)
 		return ERR_PTR(ret);
@@ -604,6 +610,7 @@ static void i3c_mctp_remove(struct i3c_device *i3cdev)
 	i3c_device_free_ibi(i3cdev);
 	i3c_mctp_client_free(priv->default_client);
 	priv->default_client = NULL;
+	wake_up_all(&wait_queue);
 	platform_device_unregister(priv->i3c_peci);
 
 	device_destroy(i3c_mctp_class, MKDEV(MAJOR(i3c_mctp_devt), priv->id));
