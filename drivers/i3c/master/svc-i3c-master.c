@@ -1469,6 +1469,9 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 		}
 		xfer_len -= count;
 	}
+	/* Prevent fifo operation from delay by interrupt */
+	if (!use_dma)
+		local_irq_disable();
 
 	/* Prevent DMA start while IBI isr is running */
 	spin_lock_irqsave(&master->req_lock, flags);
@@ -1487,10 +1490,6 @@ static int svc_i3c_master_xfer(struct svc_i3c_master *master,
 		init_completion(&master->xfer_comp);
 		svc_i3c_master_start_dma(master);
 	}
-
-	/* Prevent fifo operation from delay by interrupt */
-	if (!use_dma)
-		local_irq_disable();
 
 	start = jiffies;
 	/*
