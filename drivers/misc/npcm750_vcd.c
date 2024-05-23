@@ -715,8 +715,10 @@ static void npcm750_vcd_update_info(struct npcm750_vcd *priv)
 	if (priv->info.vdisp > VCD_MAX_HIGHT)
 		priv->info.vdisp = VCD_MAX_HIGHT;
 
-	regmap_read(vcd, VCD_HOR_AC_TIM, &priv->hortact);
-	priv->hortact &= VCD_HOR_AC_TIM_MASK;
+	if (priv->hsync_mode) {
+		regmap_read(vcd, VCD_HOR_AC_TIM, &priv->hortact);
+		priv->hortact &= VCD_HOR_AC_TIM_MASK;
+	}
 }
 
 static void npcm750_vcd_detect_video_mode(struct npcm750_vcd *priv)
@@ -794,12 +796,14 @@ static int npcm750_vcd_get_resolution(struct npcm750_vcd *priv)
 	struct regmap *vcd = priv->vcd_regmap;
 	struct regmap *gfxi = priv->gfx_regmap;
 	size_t i;
-	u32 hortact, dispst;
+	u32 hortact = 0, dispst;
 	u32 res_retry = GET_RES_RERTY, vaild_retry = GET_RES_VALID_RERTY;
 	u8 vaild = 0;
 
-	regmap_read(vcd, VCD_HOR_AC_TIM, &hortact);
-	hortact &= VCD_HOR_AC_TIM_MASK;
+	if (priv->hsync_mode) {
+		regmap_read(vcd, VCD_HOR_AC_TIM, &hortact);
+		hortact &= VCD_HOR_AC_TIM_MASK;
+	}
 
 	/* check with GFX registers if resolution changed from last time */
 	if ((priv->info.hdisp != npcm750_vcd_hres(priv)) ||
