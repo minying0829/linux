@@ -190,6 +190,10 @@
 #define SVC_I3C_FIFO_SIZE 16
 #define SVC_I3C_MAX_IBI_PAYLOAD_SIZE 8
 #define SVC_I3C_MAX_RDTERM 255
+#define SVC_I3C_MAX_PPBAUD 15
+#define SVC_I3C_MAX_PPLOW 15
+#define SVC_I3C_MAX_ODBAUD 255
+#define SVC_I3C_MAX_I2CBAUD 15
 #define I3C_SCL_PP_PERIOD_NS_MIN 40
 #define I3C_SCL_OD_LOW_PERIOD_NS_MIN 200
 
@@ -741,9 +745,10 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	struct i3c_bus *bus = i3c_master_get_bus(m);
 	struct i3c_device_info info = {};
 	unsigned long fclk_rate, fclk_period_ns;
+	unsigned long i3c_scl_rate, i2c_scl_rate;
 	unsigned int pp_high_period_ns, od_low_period_ns, i2c_period_ns;
 	unsigned int scl_period_ns;
-	u32 ppbaud, pplow, odhpp, odbaud, odstop = 0, i2cbaud, reg, div;
+	u32 ppbaud, pplow, odhpp, odbaud, odstop = 0, i2cbaud, reg;
 	int ret;
 
 	ret = pm_runtime_resume_and_get(master->dev);
@@ -769,8 +774,12 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	if (master->scl_timing.i3c_pp_hi >= I3C_SCL_PP_PERIOD_NS_MIN &&
 	    master->scl_timing.i3c_pp_lo >= master->scl_timing.i3c_pp_hi) {
 		ppbaud = DIV_ROUND_UP(master->scl_timing.i3c_pp_hi, fclk_period_ns) - 1;
+		if (ppbaud > SVC_I3C_MAX_PPBAUD)
+			ppbaud = SVC_I3C_MAX_PPBAUD;
 		pplow = DIV_ROUND_UP(master->scl_timing.i3c_pp_lo, fclk_period_ns)
 			- (ppbaud + 1);
+		if (pplow > SVC_I3C_MAX_PPLOW)
+			pplow = SVC_I3C_MAX_PPLOW;
 		bus->scl_rate.i3c = 1000000000 / (((ppbaud + 1) * 2 + pplow) * fclk_period_ns);
 	} else {
 		scl_period_ns = DIV_ROUND_UP(1000000000, bus->scl_rate.i3c);
@@ -783,6 +792,8 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 			ppbaud = DIV_ROUND_UP((scl_period_ns / 2), fclk_period_ns) - 1;
 			pplow = 0;
 		}
+		if (ppbaud > SVC_I3C_MAX_PPBAUD)
+			ppbaud = SVC_I3C_MAX_PPBAUD;
 	}
 	pp_high_period_ns = (ppbaud + 1) * fclk_period_ns;
 
@@ -799,15 +810,22 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	} else {
 		/* Set default OD timing: 1MHz/1000ns with 50% duty cycle */
 		odhpp = 0;
-		pp_high_period_ns = (ppbaud + 1) * fclk_period_ns;
 		odbaud = DIV_ROUND_UP(500, pp_high_period_ns) - 1;
 	}
+	if (odbaud > SVC_I3C_MAX_ODBAUD)
+		odbaud = SVC_I3C_MAX_ODBAUD;
 	od_low_period_ns = (odbaud + 1) * pp_high_period_ns;
 
 	/* Configure for I2C mode */
 	i2c_period_ns = DIV_ROUND_UP(1000000000, bus->scl_rate.i2c);
-	div = DIV_ROUND_UP(i2c_period_ns, od_low_period_ns);
-	i2cbaud = (div / 2) + (div % 2);
+	if (i2c_period_ns < od_low_period_ns * 2)
+		i2c_period_ns = od_low_period_ns * 2;
+	i2cbaud = DIV_ROUND_UP(i2c_period_ns, od_low_period_ns) - 2;
+	if (i2cbaud > SVC_I3C_MAX_I2CBAUD)
+		i2cbaud = SVC_I3C_MAX_I2CBAUD;
+
+	i3c_scl_rate = 1000000000 / (((ppbaud + 1) * 2 + pplow) * fclk_period_ns);
+	i2c_scl_rate = 1000000000 / ((i2cbaud + 2) * od_low_period_ns);
 
 	if (bus->mode != I3C_BUS_MODE_PURE)
 		odstop = 1;
@@ -824,12 +842,19 @@ static int svc_i3c_master_bus_init(struct i3c_master_controller *m)
 	      SVC_I3C_MCONFIG_I2CBAUD(i2cbaud);
 	writel(reg, master->regs + SVC_I3C_MCONFIG);
 
+	dev_dbg(master->dev, "dts: i3c rate=%lu, i2c rate=%lu\n",
+		bus->scl_rate.i3c, bus->scl_rate.i2c);
 	dev_info(master->dev, "fclk=%lu, period_ns=%lu\n", fclk_rate, fclk_period_ns);
-	dev_info(master->dev, "i3c scl_rate=%lu\n", bus->scl_rate.i3c);
+	dev_info(master->dev, "i3c scl_rate=%lu\n", i3c_scl_rate);
+	dev_info(master->dev, "i2c scl_rate=%lu\n", i2c_scl_rate);
 	dev_info(master->dev, "pp_high=%u, pp_low=%lu\n", pp_high_period_ns,
 			(ppbaud + 1 + pplow) * fclk_period_ns);
 	dev_info(master->dev, "od_high=%d, od_low=%d\n", odhpp ? pp_high_period_ns : od_low_period_ns,
 		 od_low_period_ns);
+	dev_dbg(master->dev, "i2c_high=%u, i2c_low=%u\n", ((i2cbaud >> 1) + 1) * od_low_period_ns,
+			((i2cbaud >> 1) + 1 + (i2cbaud % 2)) * od_low_period_ns);
+	dev_dbg(master->dev, "ppbaud=%d, pplow=%d, odbaud=%d, i2cbaud=%d\n",
+		ppbaud, pplow, odbaud, i2cbaud);
 	dev_info(master->dev, "mconfig=0x%x\n", readl(master->regs + SVC_I3C_MCONFIG));
 	/* Master core's registration */
 	ret = i3c_master_get_free_addr(m, 0);
