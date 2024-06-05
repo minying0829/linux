@@ -1961,9 +1961,10 @@ static int i3c_master_bus_init(struct i3c_master_controller *master)
 			goto err_rstdaa;
 		}
 
-		i3c_bus_set_addr_slot_status(&master->bus,
-					     i3cboardinfo->init_dyn_addr,
-					     I3C_ADDR_SLOT_I3C_DEV);
+		if (i3cboardinfo->static_addr != i3cboardinfo->init_dyn_addr)
+			i3c_bus_set_addr_slot_status(&master->bus,
+						     i3cboardinfo->init_dyn_addr,
+						     I3C_ADDR_SLOT_I3C_DEV);
 
 		/*
 		 * Only try to create/attach devices that have a static
