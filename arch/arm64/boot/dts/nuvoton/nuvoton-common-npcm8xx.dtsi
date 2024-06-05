@@ -1906,9 +1906,17 @@
 			groups = "bu4";
 			function = "bu4";
 		};
+		bu4b_pins: bu4b-pins {
+			groups = "bu4b";
+			function = "bu4b";
+		};
 		bu5_pins: bu5-pins {
 			groups = "bu5";
 			function = "bu5";
+		};
+		bu5b_pins: bu5b-pins {
+			groups = "bu5b";
+			function = "bu5b";
 		};
 		bu6_pins: bu6-pins {
 			groups = "bu6";
