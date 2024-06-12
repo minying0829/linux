@@ -37,6 +37,51 @@ properties:
   resets:
     maxItems: 1
 
+  i3c-pp-scl-hi-period-ns:
+    maxItems: 1
+    minimum: 40
+    maximum: 160
+    description: |
+      If need to configure SCL with required duty cycle, specify the clock high/low period directly.
+      i3c-pp-scl-hi-perios-ns specifies the high period ns of the SCL clock cycle in push pull mode
+      When i3c-pp-scl-hi-period-ns and i3c-pp-scl-lo-period-ns are specified, the i3c pp frequency is
+      decided by these two properties.
+
+  i3c-pp-scl-lo-period-ns:
+    maxItems: 1
+    minimum: 40
+    maximum: 310
+    description: |
+      The low period ns of the SCL clock cycle in push pull mode. i3c-pp-scl-lo-period-ns should not
+      be less than i3c-pp-scl-hi-period-ns and the maximal value is i3c-pp-scl-hi-period-ns + 150.
+
+  i3c-od-scl-hi-period-ns:
+    maxItems: 1
+    description: |
+      The i3c open drain frequency is 1MHz by default.
+      If need to use different frequency, specify the clock high/low period directly.
+      i3c-od-scl-hi-perios-ns specifies the high period ns of the SCL clock cycle in open drain mode.
+      When i3c-od-scl-hi-period-ns and i3c-od-scl-lo-period-ns are specified, the i3c od frequency is
+      decided by these two properties.
+      i3c-od-scl-hi-period-ns should be equal to i3c-pp-scl-hi-period-ns or i3c-od-scl-lo-period-ns.
+
+  i3c-od-scl-lo-period-ns:
+    maxItems: 1
+    minimum: 200
+    description: |
+      The low period ns of the SCL clock cycle in open drain mode. i3c-od-scl-lo-period-ns should be
+      multiple of i3c-pp-scl-hi-period-ns.
+
+  enable-hj:
+    type: boolean
+    description: |
+      Enable SLVSTART interrupt for receiving hot-join request.
+
+  hdr-ddr:
+    type: boolean
+    description: |
+      Enable the i3c private transfers in hdr-ddr mode.
+
 required:
   - compatible
   - reg
