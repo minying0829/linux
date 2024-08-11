@@ -242,6 +242,12 @@
 			status = "disabled";
 		};
 
+		fiu_tip: fiu_tip@0 {
+			compatible = "nuvoton,npcm845-fiu-tip";
+			reg = <0x0 0xf0800E28 0x0 0x20>;
+			status = "disabled";
+		};
+
 		pcimbox: pcimbox@f0848000 {
 			compatible = "nuvoton,npcm845-pci-mbox", "nuvoton,npcm750-pci-mbox",
 					"simple-mfd", "syscon";
