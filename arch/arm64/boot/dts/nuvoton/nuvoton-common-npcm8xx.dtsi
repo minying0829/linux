@@ -1245,6 +1245,10 @@
 			groups = "smb16";
 			function = "smb16";
 		};
+		smb16b_pins: smb16b-pins {
+			groups = "smb16b";
+			function = "smb16b";
+		};
 		smb17_pins: smb17-pins {
 			groups = "smb17";
 			function = "smb17";
