@@ -2105,7 +2105,15 @@ int i3c_master_add_i3c_dev_locked(struct i3c_master_controller *master,
 
 			if (olddev->ibi->enabled) {
 				enable_ibi = true;
-				i3c_dev_disable_ibi_locked(olddev);
+				ret = i3c_dev_disable_ibi_locked(olddev);
+				/*
+				 * If olddev is not active on the bus,
+				 * disable_ibi will get NACK.
+				 * Set ibi->enabled to false to
+				 * avoid warning message in free_ibi.
+				 */
+				if (ret == I3C_ERROR_M2)
+					olddev->ibi->enabled = false;
 			}
 
 			i3c_dev_free_ibi_locked(olddev);
