@@ -18,8 +18,9 @@
 #define NPCM_NUM_DOORBELLS 32
 
 struct npcm_mbox_hw {
-	void __iomem *base;
-	struct mbox_controller controller;
+	struct device		*dev;
+	void __iomem		*base;
+	struct mbox_controller	*controller;
 };
 
 /**
@@ -29,16 +30,17 @@ struct npcm_mbox_hw {
  * @doorbell: doorbell number pertaining to this channel
  */
 struct npcm_mbox_channel {
-	struct npcm_mbox_hw *mhw;
-	unsigned int doorbell;
+	struct npcm_mbox_hw	*mhw;
+	unsigned int		pchan;
+	unsigned int		doorbell;
 };
 
 static inline struct mbox_chan *
 npcm_mbox_to_channel(struct mbox_controller *controller, unsigned int doorbell)
 {
-	struct npcm_mbox_channel *chan_info = controller->chans[0].con_priv;
+	struct npcm_mbox_channel *chan_info = controller->chans[doorbell].con_priv;
 	if (chan_info && chan_info->doorbell == doorbell)
-		return &controller->chans[0];
+		return &controller->chans[doorbell];
 
 	return NULL;
 }
@@ -56,7 +58,7 @@ static struct mbox_chan *npcm_mbox_irq_to_channel(struct npcm_mbox_hw *mhw)
 	unsigned long bits;
 	unsigned int doorbell;
 	struct mbox_chan *chan = NULL;
-	struct mbox_controller *controller = &mhw->controller;
+	struct mbox_controller *controller = mhw->controller;
 	void __iomem *base = mhw->base;
 
 	bits = readl_relaxed(base + NPCM_CP2BST_REG_OFFSET);
@@ -113,7 +115,7 @@ static int npcm_startup(struct mbox_chan *chan)
 static void npcm_shutdown(struct mbox_chan *chan)
 {
 	struct npcm_mbox_channel *chan_info = chan->con_priv;
-	struct mbox_controller *controller = &chan_info->mhw->controller;
+	struct mbox_controller *controller = chan_info->mhw->controller;
 
 	/* Reset channel */
 	npcm_mbox_clear_irq(chan);
@@ -138,7 +140,7 @@ static struct mbox_chan *npcm_mbox_xlate(struct mbox_controller *controller,
 {
 	struct npcm_mbox_hw *mhw = dev_get_drvdata(controller->dev);
 	struct npcm_mbox_channel *chan_info;
-	struct mbox_chan *chan;
+	struct mbox_chan *chan = NULL;
 	unsigned int pchan, doorbell;
 
 	if (spec->args_count != 2) {
@@ -166,7 +168,7 @@ static struct mbox_chan *npcm_mbox_xlate(struct mbox_controller *controller,
 		return ERR_PTR(-EBUSY);
 	}
 
-	chan = &controller->chans[0];
+	chan = &controller->chans[doorbell];
 	chan_info =
 		devm_kzalloc(controller->dev, sizeof(*chan_info), GFP_KERNEL);
 	if (!chan_info)
@@ -174,6 +176,7 @@ static struct mbox_chan *npcm_mbox_xlate(struct mbox_controller *controller,
 
 	chan_info->mhw = mhw;
 	chan_info->doorbell = doorbell;
+	chan_info->pchan = pchan;
 	chan->con_priv = chan_info;
 
 	dev_info(controller->dev,
@@ -191,6 +194,7 @@ static const struct mbox_chan_ops npcm_ops = {
 
 static int npcm_mbox_probe(struct platform_device *pdev)
 {
+	struct mbox_controller *mbox;
 	struct npcm_mbox_hw *mhw;
 	struct mbox_chan *chans;
 	struct resource *res;
@@ -200,32 +204,39 @@ static int npcm_mbox_probe(struct platform_device *pdev)
 	if (!mhw)
 		return -ENOMEM;
 
+	platform_set_drvdata(pdev, mhw);
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	mhw->base = devm_ioremap_resource(&pdev->dev, res);
-
 	if (IS_ERR(mhw->base))
 		return PTR_ERR(mhw->base);
 
-	chans = devm_kcalloc(&pdev->dev, 1, sizeof(*chans), GFP_KERNEL);
+	mbox = devm_kzalloc(&pdev->dev, sizeof(*mbox), GFP_KERNEL);
+	if (!mbox)
+		return -ENOMEM;
+
+	chans = devm_kcalloc(&pdev->dev,
+			     NPCM_NUM_DOORBELLS, sizeof(*chans), GFP_KERNEL);
 	if (!chans)
 		return -ENOMEM;
 
-	mhw->controller.dev = &pdev->dev;
-	mhw->controller.chans = chans;
-	mhw->controller.num_chans = 1;
-	mhw->controller.txdone_irq = false;
-	mhw->controller.txdone_poll = true;
-	mhw->controller.txpoll_period = 1;
-	mhw->controller.of_xlate = npcm_mbox_xlate;
-	mhw->controller.ops = &npcm_ops;
+	mhw->dev	= &pdev->dev; 
+	mhw->controller	= mbox;
 
-	err = devm_mbox_controller_register(&pdev->dev, &mhw->controller);
+	mbox->dev = mhw->dev;
+	mbox->chans = chans;
+	mbox->num_chans = NPCM_NUM_DOORBELLS;
+	mbox->txdone_irq = false;
+	mbox->txdone_poll = true;
+	mbox->txpoll_period = 1;
+	mbox->of_xlate = npcm_mbox_xlate;
+	mbox->ops = &npcm_ops;
+
+	err = devm_mbox_controller_register(&pdev->dev, mbox);
 	if (err) {
 		dev_err(&pdev->dev, "Failed to register mailboxes %d\n", err);
 		return err;
 	}
-
-	platform_set_drvdata(pdev, mhw);
 
 	/* Clear all IRQs before claiming IRQ handler */
 	writel_relaxed(0xFFFFFFFF, mhw->base + NPCM_CP2BST_REG_OFFSET);
@@ -235,7 +246,7 @@ static int npcm_mbox_probe(struct platform_device *pdev)
 					IRQF_ONESHOT, "npcm_mbox", mhw);
 	if (err) {
 		dev_err(&pdev->dev, "Can't claim IRQ handler %d\n", err);
-		mbox_controller_unregister(&mhw->controller);
+		mbox_controller_unregister(mbox);
 		return err;
 	}
 
