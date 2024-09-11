@@ -141,9 +141,8 @@
 			compatible = "nuvoton,npcm845-fiu";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x0 0xfb000000 0x0 0x1000>,
-			<0x0 0x80000000 0x0 0x10000000>;
-			reg-names = "control", "memory";
+			reg = <0x0 0xfb000000 0x0 0x1000>;
+			reg-names = "control";
 			clocks = <&clk NPCM8XX_CLK_SPI0>;
 			clock-names = "clk_ahb";
 			status = "disabled";
@@ -153,9 +152,8 @@
 			compatible = "nuvoton,npcm845-fiu";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x0 0xfb002000 0x0 0x1000>,
-			<0x0 0x90000000 0x0 0x4000000>;
-			reg-names = "control", "memory";
+			reg = <0x0 0xfb002000 0x0 0x1000>;
+			reg-names = "control";
 			clocks = <&clk NPCM8XX_CLK_SPI1>;
 			clock-names = "clk_spi1";
 			pinctrl-names = "default";
@@ -167,9 +165,8 @@
 			compatible = "nuvoton,npcm845-fiu";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x0 0xc0000000 0x0 0x1000>,
-			<0x0 0xA0000000 0x0 0x20000000>;
-			reg-names = "control", "memory";
+			reg = <0x0 0xc0000000 0x0 0x1000>;
+			reg-names = "control";
 			clocks = <&clk NPCM8XX_CLK_SPI3>;
 			clock-names = "clk_spi3";
 			pinctrl-names = "default";
