@@ -1379,15 +1379,16 @@ static int svc_i3c_master_read(struct svc_i3c_master *master,
 	u32 mdctrl, mstatus;
 	bool completed = false;
 	unsigned int count;
-	unsigned long start = jiffies;
+	ktime_t timeout;
 
+	timeout = ktime_add_ms(ktime_get(), 1000);
 	while (!completed) {
 		mstatus = readl(master->regs + SVC_I3C_MSTATUS);
 		if (SVC_I3C_MSTATUS_COMPLETE(mstatus) != 0)
 			completed = true;
 
-		if (time_after(jiffies, start + msecs_to_jiffies(1000))) {
-			dev_dbg(master->dev, "I3C read timeout\n");
+		if (ktime_compare(ktime_get(), timeout) > 0) {
+			dev_err(master->dev, "I3C read timeout, count=%d/%d\n", offset, len);
 			return -ETIMEDOUT;
 		}
 
@@ -1716,6 +1717,16 @@ emit_stop:
 emit_stop_locked:
 	if (master->dma_started)
 		svc_i3c_master_stop_dma(master);
+	/*
+	 * If the read transfer is not completed, update RDTERM value to
+	 * terminate the transfer and let emitting STOP work normally.
+	 */
+	if (rnw && ret == -ETIMEDOUT) {
+		writel(SVC_I3C_MCTRL_RDTERM(1), master->regs + SVC_I3C_MCTRL);
+		svc_i3c_master_flush_fifo(master);
+		readl_poll_timeout(master->regs + SVC_I3C_MSTATUS, reg,
+				   SVC_I3C_MSTATUS_COMPLETE(reg), 0, 1000);
+	}
 	svc_i3c_master_emit_stop(master);
 	svc_i3c_master_clear_merrwarn(master);
 	svc_i3c_master_flush_fifo(master);
