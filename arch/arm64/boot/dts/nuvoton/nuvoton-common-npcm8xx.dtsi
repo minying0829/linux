@@ -376,6 +376,12 @@
 			status = "disabled";
 		};
 
+		rng_tip: rng_tip@0 {
+			compatible = "nuvoton,npcm845-rng-tip";
+			reg = <0x0 0xf0800E54 0x0 0x10>;
+			status = "disabled";
+		};
+
 		apb {
 			#address-cells = <1>;
 			#size-cells = <1>;
